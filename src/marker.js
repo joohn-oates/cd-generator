@@ -18,6 +18,8 @@ const ICONS = {
     '<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15.5 14.5 20 10l-4.5-4.5"/><path d="M19.5 10H10a5 5 0 0 0 0 10h3"/></svg>',
   save:
     '<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v15"/><path d="m6 13 6 6 6-6"/></svg>',
+  more:
+    '<svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor" aria-hidden="true"><circle cx="5.5" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="18.5" cy="12" r="1.7"/></svg>',
   clear:
     '<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6.5h16"/><path d="M9.5 6.5V4.5a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1v2"/><path d="M6 6.5 7 19a1.5 1.5 0 0 0 1.5 1.4h7A1.5 1.5 0 0 0 17 19l1-12.5"/><path d="M10 10.5v6M14 10.5v6"/></svg>',
 };
@@ -77,6 +79,33 @@ const CSS = `
 .cdm .tip.side { top: 50%; transform: translate(-4px, -50%); }
 .cdm .tip.side.show { transform: translate(0, -50%); }
 .cdm .tip kbd { font: inherit; opacity: 0.55; margin-left: 8px; }
+/* ---- Compact toolbar (narrow embeds / phones) ---- */
+.cdm .colours, .cdm .more-wrap { position: relative; display: inline-flex; align-items: center; }
+.cdm .colour-list { display: inline-flex; align-items: center; gap: 8px; }
+.cdm .colour-now, .cdm .size-toggle, .cdm .more-wrap { display: none; }
+.cdm .colour-now { width: 24px; height: 24px; padding: 0; border-radius: 99px; background: var(--c); }
+.cdm .colour-now:hover { background: var(--c); filter: brightness(1.12); }
+.cdm.compact { left: 14px; top: 6px; }
+.cdm.compact .colour-now, .cdm.compact .size-toggle { display: inline-flex; }
+.cdm.compact .more-wrap { display: inline-flex; }
+.cdm.compact .seg, .cdm.compact .icons > .save, .cdm.compact .tools > .clear { display: none; }
+.cdm .size-toggle { height: 25px; padding: 4px 8px; border-radius: 26px; background: #fff; color: #1e1e1e;
+  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.3), 0 1px 1.5px rgba(0, 0, 0, 0.15); }
+.cdm .size-toggle:hover { background: #fff; }
+/* Popovers (colour choices, overflow menu) */
+.cdm .colour-list.pop, .cdm .more-menu { position: absolute; top: calc(100% + 10px); z-index: 6;
+  background: rgba(225, 225, 226, 0.96); border: 0.5px solid rgba(129, 129, 129, 0.3); border-radius: 22px;
+  -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+  box-shadow: 0 1px 3px 1px rgba(0, 0, 0, 0.15), 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+  opacity: 0; transform: translateY(-4px) scale(0.98); pointer-events: none; visibility: hidden;
+  transition: opacity 0.16s var(--ease), transform 0.16s var(--ease), visibility 0s linear 0.16s; }
+.cdm.compact .colour-list { position: absolute; left: -10px; top: calc(100% + 10px); padding: 10px; gap: 12px; }
+.cdm.compact .colour-list .swatch { width: 32px; height: 32px; }
+.cdm.compact .colour-list .swatch[aria-pressed=true] { background-size: 100% 100%, auto; }
+.cdm .more-menu { right: -8px; display: flex; flex-direction: column; padding: 6px; min-width: 190px; }
+.cdm .more-menu button { justify-content: flex-start; gap: 10px; height: 44px; padding: 0 12px; border-radius: 16px; width: 100%; }
+.cdm .open { opacity: 1 !important; transform: none !important; pointer-events: auto !important; visibility: visible !important;
+  transition: opacity 0.16s var(--ease), transform 0.16s var(--ease), visibility 0s !important; }
 @media (prefers-reduced-motion: reduce) {
   .cdm *, .cdm .tip { transition: none !important; animation: none !important; }
 }
@@ -96,13 +125,19 @@ export function createMarker({ container, canvasEl, camera, labelMesh, ink, onTo
   bar.innerHTML = `
     <button class="pen" type="button" aria-pressed="false" aria-label="Marker mode: write on the CD" data-tip="Marker Mode">${ICONS.marker}</button>
     <span class="tools">
-      ${COLORS.map((c, i) => `<button class="swatch" type="button" data-color="${c.value}" aria-pressed="${i === 0}" aria-label="${c.name} marker" data-tip="${c.name} marker" style="--c:${SWATCH[c.name] || c.value}"></button>`).join('')}
+      <span class="colours">
+        <button class="colour-now" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Marker colour" data-tip="Marker colour" style="--c:${SWATCH[COLORS[0].name]}"></button>
+        <span class="colour-list">
+          ${COLORS.map((c, i) => `<button class="swatch" type="button" data-color="${c.value}" aria-pressed="${i === 0}" aria-label="${c.name} marker" data-tip="${c.name} marker" style="--c:${SWATCH[c.name] || c.value}"></button>`).join('')}
+        </span>
+      </span>
       <span class="sep"></span>
       <span class="seg" role="group" aria-label="Tip size">
         <span class="seg-thumb" aria-hidden="true"></span>
         <button class="size" type="button" data-size="fine" aria-pressed="true" data-tip="Fine tip">Fine</button>
         <button class="size" type="button" data-size="bold" aria-pressed="false" data-tip="Bold tip">Bold</button>
       </span>
+      <button class="size-toggle" type="button" aria-label="Tip size: Fine (tap for Bold)" data-tip="Tap for Bold">Fine</button>
       <span class="sep"></span>
       <span class="icons">
         <button class="undo" type="button" aria-label="Undo" data-tip="Undo" data-keys="undo">${ICONS.undo}</button>
@@ -111,6 +146,13 @@ export function createMarker({ container, canvasEl, camera, labelMesh, ink, onTo
       </span>
       <span class="sep"></span>
       <button class="clear" type="button" aria-label="Clear writing" data-tip="Clear all writing">${ICONS.clear}</button>
+      <span class="more-wrap">
+        <button class="more" type="button" aria-haspopup="menu" aria-expanded="false" aria-label="More" data-tip="More">${ICONS.more}</button>
+        <span class="more-menu" role="menu">
+          <button class="save" type="button" role="menuitem">${ICONS.save}<span>Save image</span></button>
+          <button class="clear" type="button" role="menuitem">${ICONS.clear}<span>Clear all writing</span></button>
+        </span>
+      </span>
       <span class="sep"></span>
       <button class="done" type="button" data-tip="Finish writing">Done</button>
     </span>`;
@@ -262,6 +304,7 @@ export function createMarker({ container, canvasEl, camera, labelMesh, ink, onTo
     if (writing === on) return;
     writing = on;
     bar.classList.toggle('on', on);
+    if (!on) closePops();
     if (on) placeSegThumb(false);
     pen.setAttribute('aria-pressed', String(on));
     canvasEl.style.cursor = on ? 'crosshair' : '';
@@ -271,10 +314,46 @@ export function createMarker({ container, canvasEl, camera, labelMesh, ink, onTo
   }
   pen.addEventListener('click', () => setWriting(!writing));
   bar.querySelector('.done').addEventListener('click', () => setWriting(false));
+  // ---- Compact layout: switch on the CD's own width, so small embeds on desktop get it too ----
+  const colourNow = bar.querySelector('.colour-now');
+  const colourList = bar.querySelector('.colour-list');
+  const moreBtn = bar.querySelector('.more');
+  const moreMenu = bar.querySelector('.more-menu');
+  const sizeToggle = bar.querySelector('.size-toggle');
+  function closePops() {
+    colourList.classList.remove('open');
+    moreMenu.classList.remove('open');
+    colourNow.setAttribute('aria-expanded', 'false');
+    moreBtn.setAttribute('aria-expanded', 'false');
+  }
+  new ResizeObserver(() => {
+    const compact = container.clientWidth < 600;
+    if (compact !== bar.classList.contains('compact')) closePops();
+    bar.classList.toggle('compact', compact);
+    colourList.classList.toggle('pop', compact);
+    placeSegThumb(false);
+  }).observe(container);
+  function togglePop(pop, btn) {
+    const open = !pop.classList.contains('open');
+    closePops();
+    pop.classList.toggle('open', open);
+    btn.setAttribute('aria-expanded', String(open));
+    hideTip();
+  }
+  colourNow.addEventListener('click', () => togglePop(colourList, colourNow));
+  moreBtn.addEventListener('click', () => togglePop(moreMenu, moreBtn));
+  document.addEventListener('pointerdown', (e) => {
+    if (!e.target.closest('.colours, .more-wrap')) closePops();
+  });
+  bar.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closePops();
+  });
   for (const b of bar.querySelectorAll('.swatch')) {
     b.addEventListener('click', () => {
       color = b.dataset.color;
       bar.querySelectorAll('.swatch').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+      colourNow.style.setProperty('--c', b.style.getPropertyValue('--c'));
+      closePops();
     });
   }
   const seg = bar.querySelector('.seg');
@@ -292,8 +371,19 @@ export function createMarker({ container, canvasEl, camera, labelMesh, ink, onTo
       size = b.dataset.size;
       bar.querySelectorAll('.size').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
       placeSegThumb(true);
+      syncSizeToggle();
     });
   }
+  function syncSizeToggle() {
+    const label = size === 'fine' ? 'Fine' : 'Bold';
+    const other = size === 'fine' ? 'Bold' : 'Fine';
+    sizeToggle.textContent = label;
+    sizeToggle.dataset.tip = `Tap for ${other}`;
+    sizeToggle.setAttribute('aria-label', `Tip size: ${label} (tap for ${other})`);
+  }
+  sizeToggle.addEventListener('click', () => {
+    bar.querySelector(`.size[data-size="${size === 'fine' ? 'bold' : 'fine'}"]`).click();
+  });
   if (document.fonts) document.fonts.ready.then(() => placeSegThumb(false));
   const undone = []; // strokes taken back by undo, for redo
   function undo() {
@@ -326,22 +416,30 @@ export function createMarker({ container, canvasEl, camera, labelMesh, ink, onTo
       redo();
     }
   });
-  bar.querySelector('.clear').addEventListener('click', () => {
+  const clearAll = () => {
     if (!strokes.length) return;
     strokes.length = 0;
     undone.length = 0;
     redraw();
     changed();
-  });
+  };
+  bar.querySelectorAll('.clear').forEach((b) => b.addEventListener('click', () => {
+    clearAll();
+    closePops();
+  }));
   // Save a picture of the CD (transparent PNG)
-  bar.querySelector('.save').addEventListener('click', () => {
+  const saveImage = () => {
     const a = document.createElement('a');
     a.href = snapshot();
     a.download = 'my-cd.png';
     document.body.appendChild(a);
     a.click();
     a.remove();
-  });
+  };
+  bar.querySelectorAll('.save').forEach((b) => b.addEventListener('click', () => {
+    saveImage();
+    closePops();
+  }));
 
   return {
     setAvailable(on) {
