@@ -31,7 +31,13 @@ body {
   color: var(--text);
   background: var(--page);
   color-scheme: dark;
+  /* Smooth, lighter text rendering (light text on dark looks heavy without this on macOS) */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
+/* Form controls don't inherit smoothing in every browser */
+button, input, select, textarea { -webkit-font-smoothing: inherit; -moz-osx-font-smoothing: inherit; }
 
 /* ---- Panel ---------------------------------------------------------------- */
 .panel {
