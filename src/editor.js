@@ -1,6 +1,7 @@
 import { createStage } from './stage.js';
 import { DEFAULTS, encodeDesign, loadDesignFromLocation, slugify } from './design.js';
 import { drawLabel } from './label.js';
+import { DISC_TYPES, discType } from './discTypes.js';
 
 const $ = (s) => document.querySelector(s);
 const stageEl = $('#stage');
@@ -32,6 +33,31 @@ function syncControls() {
   }
   $('.bg2').style.display = design.bgStyle === 'solid' ? 'none' : '';
   $('#removeArt').hidden = !design.labelImage;
+  for (const b of document.querySelectorAll('#discTypes button')) {
+    b.setAttribute('aria-checked', String(b.dataset.type === design.discType));
+  }
+  const type = discType(design.discType);
+  $('#discAbout').textContent = type.about;
+  $('#tintRow').hidden = type.id !== 'custom';
+}
+
+// Disc type swatches
+for (const t of DISC_TYPES) {
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.dataset.type = t.id;
+  b.setAttribute('role', 'radio');
+  b.title = t.layer ? `${t.name} dye, ${t.layer.toLowerCase()} layer` : t.name;
+  const dot = t.color
+    ? `background: radial-gradient(circle at 35% 30%, #fff 0 8%, transparent 40%), ${t.color}`
+    : 'background: conic-gradient(#f66, #fd6, #6f9, #6cf, #a7f, #f66)';
+  b.innerHTML = `<span class="dot" style="${dot}"></span><span class="txt">${t.name}<small>${t.layer}</small></span>`;
+  b.addEventListener('click', () => {
+    design.discType = t.id;
+    syncControls();
+    update(false);
+  });
+  $('#discTypes').appendChild(b);
 }
 
 function update(labelChanged) {

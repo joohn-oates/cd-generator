@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { applyGrain, labelSurfaceMap, dataSurfaceMap } from './textures.js';
+import { discType } from './discTypes.js';
 
 // Real CD proportions (120 mm disc), scaled so the radius is 1.
 const R = 1;
@@ -60,6 +61,7 @@ function addDiffraction(material, uniforms) {
 varying vec3 vRadialView;
 uniform vec4 uLights[${LIGHTS.length}];
 uniform float uRainbow;
+uniform vec3 uDye;         // dye hue: tints the rainbow streaks
 uniform float uGroove;     // groove spacing in nm
 uniform float uStreak;     // streak width
 
@@ -104,6 +106,7 @@ vec3 spectrum(float lam) {
       mask += w;
     }
     vec3 tint = rainbow / max(mask, 1e-4);
+    tint *= mix(vec3(1.0), uDye, 0.5);
     float k = clamp(mask, 0.0, 1.0) * uRainbow;
     // Replace silver with saturated colour inside the streak, brighten slightly at its core
     outgoingLight = mix(outgoingLight, tint * (0.75 + 0.6 * k), k * 0.9);
@@ -127,6 +130,7 @@ export function createCD() {
   const diffraction = {
     uLights: { value: LIGHTS },
     uRainbow: { value: 1 },
+    uDye: { value: new THREE.Color(1, 1, 1) },
     uGroove: { value: 1600 },
     uStreak: { value: 0.085 },
   };
@@ -230,7 +234,12 @@ export function createCD() {
     },
 
     setStyle(design) {
-      dataMat.color.set(0xedf2f7).multiply(new THREE.Color(design.tint));
+      // Disc type: real CD/CD-R dye + reflective layer colours, or a custom tint over silver.
+      const type = discType(design.discType);
+      if (type.color) dataMat.color.set(type.color);
+      else dataMat.color.set(0xedf2f7).multiply(new THREE.Color(design.tint));
+      const c = dataMat.color;
+      diffraction.uDye.value.copy(c).multiplyScalar(1 / Math.max(c.r, c.g, c.b, 1e-4));
       diffraction.uRainbow.value = design.rainbow;
       dataMat.iridescence = design.rainbow * 0.12;
       dataMat.roughness = 0.03 + (1 - design.shine) * 0.45;

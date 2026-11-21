@@ -49,4 +49,16 @@ code { background: var(--panel-2); padding: 1px 4px; border-radius: 4px; }
   #stage { grid-row: 1; }
   .panel { grid-row: 2; border-right: 0; padding: 16px; }
 }
+.field { display: grid; gap: 6px; }
+.field-label { color: var(--muted); font-size: 13px; }
+.field-label small { opacity: .7; }
+.swatches { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.swatches button {
+  justify-content: flex-start; gap: 8px; padding: 6px 8px; text-align: left;
+  background: var(--panel-2); border: 1px solid var(--line); color: var(--text); font-weight: 500; font-size: 12px;
+}
+.swatches button[aria-checked=true] { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+.swatches .dot { flex: none; width: 22px; height: 22px; border-radius: 50%; box-shadow: 0 0 0 1px rgba(255,255,255,.15) inset; }
+.swatches .txt { display: grid; line-height: 1.15; }
+.swatches small { color: var(--muted); font-size: 11px; }
 [hidden] { display: none !important; }

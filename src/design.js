@@ -15,7 +15,8 @@ export const DEFAULTS = {
   texture: 0.5,             // 0..1 raised paper/ink texture that catches light
 
   // Disc (shiny data side + plastic hub)
-  tint: '#ffffff',
+  discType: 'pressed',      // see discTypes.js (dye + reflective layer)
+  tint: '#ffffff',          // only used when discType is 'custom'
   rainbow: 1,               // 0..1 strength of the moving rainbow streaks
   shine: 0.85,              // 0..1 (1 = mirror)
   hub: 'clear',             // 'clear' | 'silver'
@@ -50,14 +51,21 @@ export function encodeDesign(design) {
   const diff = {};
   for (const [k, v] of Object.entries(design)) {
     if (FILE_ONLY.includes(k)) continue;
+    if (k === 'tint' && design.discType !== 'custom') continue;
     if (k in DEFAULTS && DEFAULTS[k] !== v) diff[k] = v;
   }
   return toBase64Url(JSON.stringify(diff));
 }
 
+// Designs made before disc types existed used a free tint: keep them as "custom".
+function upgrade(d) {
+  if (!('discType' in d) && d.tint && d.tint !== DEFAULTS.tint) d.discType = 'custom';
+  return d;
+}
+
 export function decodeDesign(str) {
   try {
-    return { ...DEFAULTS, ...JSON.parse(fromBase64Url(str)) };
+    return { ...DEFAULTS, ...upgrade(JSON.parse(fromBase64Url(str))) };
   } catch {
     return { ...DEFAULTS };
   }
@@ -81,7 +89,7 @@ export async function loadDesignFromLocation(baseUrl = location.href) {
     const url = new URL(`designs/${name}.json`, baseUrl);
     const res = await fetch(url, { cache: 'no-cache' });
     if (!res.ok) throw new Error(`Design "${name}" not found (${url.pathname})`);
-    return { ...DEFAULTS, ...(await res.json()), name };
+    return { ...DEFAULTS, ...upgrade(await res.json()), name };
   }
   if (params.has('c')) return decodeDesign(params.get('c'));
   return { ...DEFAULTS };

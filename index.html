@@ -50,7 +50,12 @@
 
     <section>
       <h2>Disc</h2>
-      <label>Shiny side tint <input data-key="tint" type="color"></label>
+      <div class="field">
+        <span class="field-label">Disc type <small>(dye + reflective layer)</small></span>
+        <div id="discTypes" class="swatches" role="radiogroup" aria-label="Disc type"></div>
+        <p id="discAbout" class="hint"></p>
+      </div>
+      <label id="tintRow">Custom colour <input data-key="tint" type="color"></label>
       <label>Rainbow <input data-key="rainbow" type="range" min="0" max="1" step="0.01"></label>
       <label>Shine <input data-key="shine" type="range" min="0" max="1" step="0.01"></label>
       <label>Wear &amp; scratches <input data-key="wear" type="range" min="0" max="1" step="0.01"></label>
