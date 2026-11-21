@@ -39,7 +39,25 @@ body {
   flex-direction: column;
   gap: 29px;
 }
+.panel { scrollbar-width: none; }              /* native scrollbar hidden… */
+.panel::-webkit-scrollbar { display: none; }
 .panel header { display: flex; }
+
+/* …replaced by a slim overlay scrollbar that takes no space (see editor.js) */
+.scroll-thumb {
+  position: fixed;
+  z-index: 10;
+  width: 4px;
+  border-radius: 4px;
+  background: rgba(30, 30, 30, 0.38);
+  opacity: 0;
+  transition: opacity 0.35s ease, width 0.15s ease;
+  cursor: default;
+  touch-action: none;
+}
+.panel:hover ~ .scroll-thumb { opacity: 0.55; }
+.scroll-thumb.on, .scroll-thumb:hover, .scroll-thumb.drag { opacity: 1; transition: opacity 0.1s ease, width 0.15s ease; }
+.scroll-thumb:hover, .scroll-thumb.drag { width: 6px; }
 .logo { display: block; width: 181px; height: auto; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 

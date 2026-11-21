@@ -281,6 +281,59 @@ $('#template').addEventListener('click', () => download(drawTemplate().toDataURL
 
 $('#png').addEventListener('click', () => download(stage.snapshot(), `${slugify($('#name').value)}.png`));
 
+// ---- Overlay scrollbar for the settings panel (takes no space) ----
+{
+  const panel = $('.panel');
+  const thumb = document.createElement('div');
+  thumb.className = 'scroll-thumb';
+  thumb.setAttribute('aria-hidden', 'true');
+  document.body.appendChild(thumb);
+  let hideTimer = 0;
+  const place = () => {
+    const r = panel.getBoundingClientRect();
+    const range = panel.scrollHeight - panel.clientHeight;
+    if (range <= 1 || r.height <= 0) {
+      thumb.hidden = true;
+      return;
+    }
+    thumb.hidden = false;
+    const h = Math.max(36, (r.height * panel.clientHeight) / panel.scrollHeight);
+    const top = r.top + 4 + (r.height - 8 - h) * (panel.scrollTop / range);
+    thumb.style.top = `${top}px`;
+    thumb.style.height = `${h}px`;
+    thumb.style.left = `${r.right - 9}px`;
+  };
+  panel.addEventListener('scroll', () => {
+    place();
+    thumb.classList.add('on');
+    clearTimeout(hideTimer);
+    hideTimer = setTimeout(() => thumb.classList.remove('on'), 900);
+  }, { passive: true });
+  new ResizeObserver(place).observe(panel);
+  new MutationObserver(place).observe(panel, { childList: true, subtree: true, attributes: true, attributeFilter: ['hidden'] });
+  window.addEventListener('resize', place);
+  // Drag the thumb
+  thumb.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    thumb.setPointerCapture(e.pointerId);
+    thumb.classList.add('drag');
+    const startY = e.clientY;
+    const startScroll = panel.scrollTop;
+    const r = panel.getBoundingClientRect();
+    const track = r.height - 8 - thumb.offsetHeight;
+    const range = panel.scrollHeight - panel.clientHeight;
+    const move = (ev) => (panel.scrollTop = startScroll + ((ev.clientY - startY) / track) * range);
+    const end = () => {
+      thumb.classList.remove('drag');
+      thumb.removeEventListener('pointermove', move);
+    };
+    thumb.addEventListener('pointermove', move);
+    thumb.addEventListener('pointerup', end, { once: true });
+    thumb.addEventListener('pointercancel', end, { once: true });
+  });
+  place();
+}
+
 syncControls();
 updateInkInfo();
 update(true);
