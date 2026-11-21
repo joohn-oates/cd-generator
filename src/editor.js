@@ -4,6 +4,7 @@ import { drawLabel, imageHasAlpha, loadImage } from './label.js';
 import { drawTemplate } from './template.js';
 import { encodeInk } from './ink.js';
 import { CONDITIONS } from './damage.js';
+import { randomSerial } from './hubText.js';
 import { DISC_TYPES, discType } from './discTypes.js';
 import { FRONTS, frontById, drawFront, resolveFrontId } from './fronts.js';
 
@@ -106,6 +107,11 @@ for (const c of CONDITIONS) {
   });
   $('#conditions').appendChild(b);
 }
+$('#randomSerial').addEventListener('click', () => {
+  design.hubSerial = randomSerial();
+  syncControls();
+  update(false);
+});
 $('#reroll').addEventListener('click', () => {
   design.damageSeed = (design.damageSeed || 1) + 1;
   update(false);

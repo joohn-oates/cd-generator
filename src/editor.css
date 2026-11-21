@@ -64,4 +64,5 @@ code { background: var(--panel-2); padding: 1px 4px; border-radius: 4px; }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .chip { padding: 6px 10px; font-size: 12px; font-weight: 500; background: var(--panel-2); border: 1px solid var(--line); color: var(--text); }
 .chip[aria-checked=true] { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+.row.inline { grid-template-columns: 1fr auto; align-items: center; }
 [hidden] { display: none !important; }

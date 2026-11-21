@@ -406,7 +406,7 @@ uniform vec4 uLights[${LIGHTS.length}];`)
 
   // Text printed on the hub's flat band (between the small ridge and the stacking ring).
   // Double-sided: from the back you see it reversed through the clear plastic.
-  const hubTextGeo = new THREE.RingGeometry(0.212, 0.278, 160, 1);
+  const hubTextGeo = new THREE.RingGeometry(0.135, 0.278, 160, 2);
   {
     const pos = hubTextGeo.attributes.position;
     const uv = hubTextGeo.attributes.uv;
@@ -484,7 +484,7 @@ uniform vec4 uLights[${LIGHTS.length}];`)
 
     // Hub ring text (async: waits for fonts)
     async setHubText(design) {
-      const key = [design.hubText1, design.hubText2, design.hubTextColor].join('|');
+      const key = [design.hubText1, design.hubText2, design.hubTextColor, design.hubSerial].join('|');
       if (key === hubTextKey) return;
       hubTextKey = key;
       const canvas = await drawHubText(design);
