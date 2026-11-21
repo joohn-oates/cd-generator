@@ -4,6 +4,7 @@ import { createCD } from './cd.js';
 import { drawLabel } from './label.js';
 import { drawFront, frontById } from './fronts.js';
 import { createMarker } from './marker.js';
+import { decodeInk } from './ink.js';
 
 // A bright white room with a few soft light panels, like a desk by a window.
 // The shiny side reflects this, so it reads as pale silver instead of dark chrome.
@@ -41,7 +42,8 @@ function studioEnvironment() {
 }
 
 // Creates the 3D scene inside `container` (fills it, transparent background).
-export function createStage(container, { preserveDrawingBuffer = false } = {}) {
+// editor: writing is saved into the design (reported through onInkChange).
+export function createStage(container, { preserveDrawingBuffer = false, editor = false, onInkChange = () => {} } = {}) {
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.setClearColor(0x000000, 0);
@@ -116,7 +118,26 @@ export function createStage(container, { preserveDrawingBuffer = false } = {}) {
     labelMesh: cd.labelMesh,
     ink: cd.ink,
     onToggle: () => {},
+    onChange: (strokes) => onInkChange(strokes),
+    snapshot: () => snapshot(),
+    editor,
   });
+  let lastInk = null;
+
+  // Transparent PNG of the current view, rendered at high resolution.
+  function snapshot(scale = 2) {
+    const pr = renderer.getPixelRatio();
+    const w = container.clientWidth || 1;
+    const h = container.clientHeight || 1;
+    renderer.setPixelRatio(Math.max(pr, scale));
+    renderer.setSize(w, h, false);
+    renderer.render(scene, camera);
+    const url = renderer.domElement.toDataURL('image/png');
+    renderer.setPixelRatio(pr);
+    renderer.setSize(w, h, false);
+    renderer.render(scene, camera);
+    return url;
+  }
   marker.setCanDraw(() => writeBlend > 0.98);
 
   const clock = new THREE.Clock();
@@ -174,6 +195,10 @@ export function createStage(container, { preserveDrawingBuffer = false } = {}) {
       design = next;
       cd.setStyle(next);
       marker.setAvailable(next.marker !== false);
+      if ((next.ink || '') !== lastInk) {
+        lastInk = next.ink || '';
+        marker.setSaved(decodeInk(lastInk));
+      }
       if (!prev || prev.motion !== next.motion) {
         mot.rx = mot.ry = mot.rz = mot.py = 0;
         t = 0;
@@ -191,10 +216,11 @@ export function createStage(container, { preserveDrawingBuffer = false } = {}) {
       }
     },
 
-    // Transparent PNG of the current view.
-    snapshot() {
-      renderer.render(scene, camera);
-      return renderer.domElement.toDataURL('image/png');
+    snapshot,
+
+    // Tell the stage the design's writing already matches (avoids redrawing what you just wrote).
+    inkSynced(str) {
+      lastInk = str || '';
     },
   };
 }

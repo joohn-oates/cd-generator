@@ -208,13 +208,13 @@ export function createCD() {
   const inkMat = new THREE.MeshPhysicalMaterial({
     map: inkTexture,
     transparent: true,
-    opacity: 0.94,
-    roughness: 0.32,       // permanent marker dries slightly glossy
-    clearcoat: 0.4,
-    clearcoatRoughness: 0.25,
+    opacity: 1,
+    roughness: 0.38,       // permanent marker dries slightly glossy
+    clearcoat: 0.2,
+    clearcoatRoughness: 0.3,
     depthWrite: false,
     toneMapped: false,
-    envMapIntensity: 0.4,
+    envMapIntensity: 0.25,
     polygonOffset: true,
     polygonOffsetFactor: -2,
   });

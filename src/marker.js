@@ -1,21 +1,20 @@
 import * as THREE from 'three';
+import { INK_COLORS as COLORS, INK_SIZES as SIZES, drawStroke } from './ink.js';
 
 // "Sharpie mode": a toolbar over the 3D view. While writing, the disc holds still facing
 // the viewer and pointer strokes are drawn onto the ink layer above the label.
-
-const COLORS = [
-  { name: 'Black', value: '#141414' },
-  { name: 'Red', value: '#c4161c' },
-  { name: 'Blue', value: '#1d3fa6' },
-];
-// Ink canvas is 1024 px across the 120 mm disc (~8.5 px per mm).
-const SIZES = { fine: 8, bold: 17 };
+//
+// Two layers of writing:
+//   saved – part of the design (written in the editor); visitors can't undo or clear it
+//   own   – this person's writing. In the editor, own writing *is* the saved writing.
 
 const ICONS = {
   marker:
     '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M14.5 3.5l6 6-9.5 9.5H5v-6z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M5 13l6 6M3 21l2-2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
   undo:
     '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M9 7L4 12l5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 12h10a6 6 0 010 12h-2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" transform="translate(0 -6)"/></svg>',
+  save:
+    '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
   clear:
     '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
 };
@@ -42,7 +41,7 @@ const CSS = `
 .cdm.on .pen { background: rgba(255,255,255,.16); }
 `;
 
-export function createMarker({ container, canvasEl, camera, labelMesh, ink, onToggle }) {
+export function createMarker({ container, canvasEl, camera, labelMesh, ink, onToggle, onChange = () => {}, snapshot, editor = false }) {
   if (!document.getElementById('cdm-style')) {
     const style = document.createElement('style');
     style.id = 'cdm-style';
@@ -61,12 +60,19 @@ export function createMarker({ container, canvasEl, camera, labelMesh, ink, onTo
       <span class="sep"></span>
       <button class="undo" type="button" aria-label="Undo" title="Undo">${ICONS.undo}</button>
       <button class="clear" type="button" aria-label="Clear writing" title="Clear">${ICONS.clear}</button>
+      <button class="save" type="button" aria-label="Save a picture of the CD" title="Save image">${ICONS.save}</button>
       <button class="done" type="button">Done</button>
     </span>`;
   container.appendChild(bar);
 
   const ctx = ink.canvas.getContext('2d');
   const W = ink.canvas.width;
+  // Finished strokes are kept on `base`; the stroke being drawn is added on top each move.
+  const base = document.createElement('canvas');
+  base.width = base.height = W;
+  const bctx = base.getContext('2d');
+
+  let saved = []; // from the design (viewer only)
   const strokes = []; // { color, width, points: [[x,y] | null] }  null = pen lifted off the label
   let color = COLORS[0].value;
   let size = 'fine';
@@ -74,34 +80,19 @@ export function createMarker({ container, canvasEl, camera, labelMesh, ink, onTo
   let current = null;
   let canDraw = () => true; // set by the stage: only once the disc has turned to face you
 
-  // --- drawing -------------------------------------------------------------
-  function segment(stroke, from, to) {
-    ctx.strokeStyle = ctx.fillStyle = stroke.color;
-    ctx.lineWidth = stroke.width;
-    ctx.lineCap = ctx.lineJoin = 'round';
-    ctx.beginPath();
-    ctx.moveTo(from[0], from[1]);
-    ctx.lineTo(to[0], to[1]);
-    ctx.stroke();
-  }
-  function dot(stroke, p) {
-    ctx.fillStyle = stroke.color;
-    ctx.beginPath();
-    ctx.arc(p[0], p[1], stroke.width / 2, 0, Math.PI * 2);
-    ctx.fill();
-  }
-  function redraw() {
+  function show() {
     ctx.clearRect(0, 0, W, W);
-    for (const s of strokes) {
-      let prev = null;
-      for (const p of s.points) {
-        if (p && prev) segment(s, prev, p);
-        else if (p) dot(s, p);
-        prev = p;
-      }
-    }
+    ctx.drawImage(base, 0, 0);
+    if (current) drawStroke(ctx, current);
     ink.texture.needsUpdate = true;
   }
+  function redraw() {
+    bctx.clearRect(0, 0, W, W);
+    for (const s of saved) drawStroke(bctx, s);
+    for (const s of strokes) drawStroke(bctx, s);
+    show();
+  }
+  const changed = () => onChange(strokes.map((s) => ({ ...s, points: s.points.slice() })));
 
   const raycaster = new THREE.Raycaster();
   const ndc = new THREE.Vector2();
@@ -118,10 +109,7 @@ export function createMarker({ container, canvasEl, camera, labelMesh, ink, onTo
     const p = hitPoint(e);
     const pts = current.points;
     const prev = pts[pts.length - 1];
-    if (p && prev) segment(current, prev, p);
-    else if (p) dot(current, p);
     if (p || prev) pts.push(p);
-    ink.texture.needsUpdate = true;
   }
 
   function down(e) {
@@ -130,18 +118,26 @@ export function createMarker({ container, canvasEl, camera, labelMesh, ink, onTo
     e.stopPropagation();
     canvasEl.setPointerCapture(e.pointerId);
     current = { color, width: SIZES[size], points: [] };
-    strokes.push(current);
     addPoint(e);
+    show();
   }
   function move(e) {
     if (!writing || !current) return;
     e.preventDefault();
     const events = e.getCoalescedEvents ? e.getCoalescedEvents() : [e];
     for (const ev of events.length ? events : [e]) addPoint(ev);
+    show();
   }
   function up() {
-    if (current && !current.points.some(Boolean)) strokes.pop();
+    if (!current) return;
+    const done = current;
     current = null;
+    if (done.points.some(Boolean)) {
+      strokes.push(done);
+      drawStroke(bctx, done);
+      changed();
+    }
+    show();
   }
   // Capture phase so the drag-to-rotate controls never see writing strokes.
   canvasEl.addEventListener('pointerdown', down, { capture: true });
@@ -175,18 +171,40 @@ export function createMarker({ container, canvasEl, camera, labelMesh, ink, onTo
     sizeBtn.textContent = size === 'fine' ? 'Fine' : 'Bold';
   });
   bar.querySelector('.undo').addEventListener('click', () => {
+    if (!strokes.length) return;
     strokes.pop();
     redraw();
+    changed();
   });
   bar.querySelector('.clear').addEventListener('click', () => {
+    if (!strokes.length) return;
     strokes.length = 0;
     redraw();
+    changed();
+  });
+  // Save a picture of the CD (transparent PNG)
+  bar.querySelector('.save').addEventListener('click', () => {
+    const a = document.createElement('a');
+    a.href = snapshot();
+    a.download = 'my-cd.png';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
   });
 
   return {
     setAvailable(on) {
+      on = on || editor; // you can always write in the editor
       bar.hidden = !on;
       if (!on) setWriting(false);
+    },
+    // Writing saved in the design. In the editor it becomes your editable writing.
+    setSaved(list) {
+      if (editor) {
+        strokes.length = 0;
+        strokes.push(...list);
+      } else saved = list;
+      redraw();
     },
     setCanDraw(fn) {
       canDraw = fn;

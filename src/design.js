@@ -33,6 +33,7 @@ export const DEFAULTS = {
   tilt: 12,                 // degrees
   drag: true,
   marker: true,             // visitors can write on the label with a marker
+  ink: '',                  // writing saved into the design (see ink.js)
 };
 
 // Keys that only exist in design files, never in links.

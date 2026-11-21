@@ -2,12 +2,23 @@ import { createStage } from './stage.js';
 import { DEFAULTS, encodeDesign, loadDesignFromLocation, slugify } from './design.js';
 import { drawLabel, imageHasAlpha, loadImage } from './label.js';
 import { drawTemplate } from './template.js';
+import { encodeInk } from './ink.js';
 import { DISC_TYPES, discType } from './discTypes.js';
 import { FRONTS, frontById, drawFront, resolveFrontId } from './fronts.js';
 
 const $ = (s) => document.querySelector(s);
 const stageEl = $('#stage');
-const stage = createStage(stageEl, { preserveDrawingBuffer: true });
+const stage = createStage(stageEl, {
+  preserveDrawingBuffer: true,
+  editor: true,
+  // Writing in the editor is saved into the design.
+  onInkChange: (strokes) => {
+    design.ink = encodeInk(strokes);
+    stage.inkSynced(design.ink);
+    $('#output').hidden = true;
+    updateInkInfo();
+  },
+});
 
 const LABEL_KEYS = ['bgStyle', 'bg1', 'bg2', 'title', 'subtitle', 'textColor', 'grain', 'front', 'knockouts', 'finish'];
 const hasCustomArt = () => design.front === 'custom' && !!design.labelImage;
@@ -159,11 +170,28 @@ $('#previewBg').addEventListener('input', (e) => (stageEl.style.background = e.t
 // ---- Export ----
 const viewerBase = new URL('viewer.html', location.href);
 
+// Long writing makes the link too long for some places to accept, so it then goes in a design file.
+const MAX_LINK_DESIGN = 6000;
+const inkTooLong = () => encodeDesign(design).length > MAX_LINK_DESIGN;
+const needsFile = () => hasCustomArt() || inkTooLong();
+
+function updateInkInfo() {
+  const n = design.ink ? Math.round((design.ink.length * 3) / 4) : 0;
+  $('#inkInfo').textContent = !design.ink
+    ? 'No saved writing yet.'
+    : inkTooLong()
+      ? `Saved writing: ${(n / 1024).toFixed(1)} KB. That's a lot, so this design will need a design file.`
+      : `Saved writing: ${(n / 1024).toFixed(1)} KB. It fits in the embed link.`;
+}
+
 $('#getLink').addEventListener('click', () => {
   const name = slugify($('#name').value);
   $('#name').value = name;
   const link = new URL(viewerBase);
-  if (hasCustomArt()) {
+  $('#fileReason').textContent = hasCustomArt()
+    ? 'This design has uploaded artwork'
+    : 'This design has a lot of writing';
+  if (needsFile()) {
     link.searchParams.set('d', name);
     $('#fileName').textContent = `${name}.json`;
   } else {
@@ -171,7 +199,7 @@ $('#getLink').addEventListener('click', () => {
   }
   $('#link').value = link.href;
   $('#openLink').href = link.href;
-  $('#fileSteps').hidden = !hasCustomArt();
+  $('#fileSteps').hidden = !needsFile();
   $('#output').hidden = false;
 });
 
@@ -197,9 +225,11 @@ $('#downloadFile').addEventListener('click', async () => {
   const name = slugify($('#name').value);
   // Bake the finished label (art + text) into one image so it looks identical everywhere.
   // With knockouts the transparency is kept (PNG); otherwise a smaller JPG.
-  const label = await drawLabel(design, 1024, { bake: true });
-  const image = label.knockouts ? label.color.toDataURL('image/png') : label.color.toDataURL('image/jpeg', 0.9);
-  const file = { ...design, labelRendered: image };
+  const file = { ...design };
+  if (hasCustomArt()) {
+    const label = await drawLabel(design, 1024, { bake: true });
+    file.labelRendered = label.knockouts ? label.color.toDataURL('image/png') : label.color.toDataURL('image/jpeg', 0.9);
+  }
   delete file.labelImage;
   delete file.name;
   const blob = new Blob([JSON.stringify(file)], { type: 'application/json' });
@@ -213,4 +243,5 @@ $('#template').addEventListener('click', () => download(drawTemplate().toDataURL
 $('#png').addEventListener('click', () => download(stage.snapshot(), `${slugify($('#name').value)}.png`));
 
 syncControls();
+updateInkInfo();
 update(true);

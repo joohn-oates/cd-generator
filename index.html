@@ -75,6 +75,12 @@
     </section>
 
     <section>
+      <h2>Writing</h2>
+      <p class="hint">Click the <strong>marker button</strong> on the preview to write on the CD. What you write here is <strong>saved into this design</strong>. Visitors see it, and can add their own writing on top (theirs isn't saved).</p>
+      <p id="inkInfo" class="hint"></p>
+    </section>
+
+    <section>
       <h2>Motion</h2>
       <label>Style
         <select data-key="motion">
@@ -98,7 +104,7 @@
         <input id="link" type="text" readonly>
         <div class="row"><button id="copy" class="secondary">Copy link</button><a id="openLink" class="button secondary" target="_blank">Open</a></div>
         <div id="fileSteps" hidden>
-          <p class="hint"><strong>This design has uploaded artwork</strong>, so it needs a design file:</p>
+          <p class="hint"><strong id="fileReason">This design has uploaded artwork</strong>, so it needs a design file:</p>
           <ol class="hint">
             <li><button id="downloadFile" class="linkish">Download <span id="fileName"></span></button></li>
             <li>On GitHub, open your repo's <code>designs</code> folder → <em>Add file → Upload files</em> → drop it in → <em>Commit</em>.</li>
