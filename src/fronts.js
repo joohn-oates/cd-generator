@@ -371,7 +371,7 @@ export const FRONTS = [
     file: 'oatey_cd.png',
     mode: 'knockout',
     // Same satin metal lacquer as the Verbatim-style front, tinted red
-    face: { color: '#a8453f', metal: 0.7, rough: 0.28, hubBand: '#7e6f6f', rim: '#c4bfc0' },
+    face: { color: '#c0392b', metal: 0.7, rough: 0.28, hubBand: '#7e6f6f', rim: '#c4bfc0' },
   }),
 ];
 
