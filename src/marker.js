@@ -8,37 +8,58 @@ import { INK_COLORS as COLORS, INK_SIZES as SIZES, drawStroke } from './ink.js';
 //   saved – part of the design (written in the editor); visitors can't undo or clear it
 //   own   – this person's writing. In the editor, own writing *is* the saved writing.
 
+// Icons (24×24). The marker is from the Figma design; the others are drawn to match its style.
 const ICONS = {
   marker:
-    '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M14.5 3.5l6 6-9.5 9.5H5v-6z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M5 13l6 6M3 21l2-2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
+    '<svg viewBox="0 0 20.53 20.53" width="20" height="20" fill="none" aria-hidden="true"><path d="M11 .53 6.707 4.823a1 1 0 0 0 0 1.414l7.586 7.586a1 1 0 0 0 1.414 0L20 9.53" stroke="currentColor" stroke-width="1.5"/><path d="M7.571 6.53 5.414 8.688a2 2 0 0 0 0 2.828l3.6 3.6a2 2 0 0 0 2.829 0L14 12.959" stroke="currentColor" stroke-width="1.5"/><path d="M3 13.673 5.143 11.53 9 15.388 6.857 17.53 1 20.53l-1-1 3-5.857Z" fill="currentColor"/></svg>',
   undo:
-    '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M9 7L4 12l5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 12h10a6 6 0 010 12h-2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" transform="translate(0 -6)"/></svg>',
+    '<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8.5 14.5 4 10l4.5-4.5"/><path d="M4.5 10H14a5 5 0 0 1 0 10h-3"/></svg>',
+  redo:
+    '<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15.5 14.5 20 10l-4.5-4.5"/><path d="M19.5 10H10a5 5 0 0 0 0 10h3"/></svg>',
   save:
-    '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    '<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v15"/><path d="m6 13 6 6 6-6"/></svg>',
   clear:
-    '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    '<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6.5h16"/><path d="M9.5 6.5V4.5a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1v2"/><path d="M6 6.5 7 19a1.5 1.5 0 0 0 1.5 1.4h7A1.5 1.5 0 0 0 17 19l1-12.5"/><path d="M10 10.5v6M14 10.5v6"/></svg>',
 };
 
+// Swatch colours shown in the toolbar (from the Figma design). The ink itself uses the
+// realistic permanent-marker colours from ink.js.
+const SWATCH = { Black: '#303030', Red: '#ff383c', Blue: '#0088ff' };
+
+const FONT_URL = new URL('../fonts/geist-sans-latin-600-normal.woff2', import.meta.url).href;
 const CSS = `
-.cdm { position: absolute; left: 12px; bottom: 12px; display: flex; align-items: center; gap: 6px;
-  padding: 6px; border-radius: 999px; background: rgba(20,20,24,.78); color: #fff;
-  -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
-  font: 600 13px system-ui, -apple-system, "Segoe UI", sans-serif; z-index: 5; user-select: none;
-  box-shadow: 0 4px 16px rgba(0,0,0,.18); }
+@font-face { font-family: "Geist"; src: url(${FONT_URL}) format("woff2"); font-weight: 600; font-display: swap; }
+.cdm { position: absolute; left: 19px; top: 20px; z-index: 5; display: flex; align-items: center; gap: 8px;
+  height: 40px; padding: 0 3.5px; border-radius: 38px; box-sizing: border-box;
+  background: rgba(225, 225, 226, 0.92); border: 0.5px solid rgba(129, 129, 129, 0.3);
+  -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+  font: 600 13px "Geist", Inter, system-ui, -apple-system, "Segoe UI", sans-serif; color: #1e1e1e;
+  -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; user-select: none; }
 .cdm[hidden] { display: none; }
 .cdm button { all: unset; box-sizing: border-box; cursor: pointer; display: inline-flex; align-items: center;
-  justify-content: center; min-width: 34px; height: 34px; border-radius: 999px; color: #fff; }
-.cdm button:hover { background: rgba(255,255,255,.12); }
-.cdm button:focus-visible { outline: 2px solid #8fb3ff; outline-offset: 1px; }
-.cdm .tools { display: none; align-items: center; gap: 4px; }
+  justify-content: center; height: 32px; padding: 4px 9px; border-radius: 28px; color: #1e1e1e; }
+.cdm button:hover { background: rgba(118, 118, 128, 0.12); }
+.cdm button:focus-visible { outline: 2px solid #00c0e8; outline-offset: 1px; }
+.cdm .pen { width: 42px; }
+.cdm.on .pen { background: rgba(118, 118, 128, 0.12); box-shadow: inset 0 0 0 0.5px rgba(129, 129, 129, 0.3); }
+.cdm .tools { display: none; align-items: center; gap: 8px; }
 .cdm.on .tools { display: inline-flex; }
-.cdm .swatch { min-width: 26px; width: 26px; height: 26px; margin: 0 2px; border: 2px solid rgba(255,255,255,.35); }
-.cdm .swatch[aria-pressed=true] { border-color: #fff; box-shadow: 0 0 0 2px rgba(255,255,255,.35); }
-.cdm .size { padding: 0 10px; font-size: 12px; }
-.cdm .done { padding: 0 14px; background: #fff; color: #111; }
-.cdm .done:hover { background: #e9e9ee; }
-.cdm .sep { width: 1px; height: 20px; background: rgba(255,255,255,.2); margin: 0 2px; }
-.cdm.on .pen { background: rgba(255,255,255,.16); }
+.cdm .swatch { width: 24px; height: 24px; padding: 0; border-radius: 99px; }
+.cdm .swatch:hover { background: var(--c); filter: brightness(1.1); }
+.cdm .swatch[aria-pressed=true] { box-shadow: 0 0 0 2px rgba(225, 225, 226, 0.95), 0 0 0 3.5px currentColor; }
+.cdm .sep { width: 1px; height: 32px; background: rgba(49, 49, 49, 0.1); }
+.cdm .seg { display: inline-flex; gap: 2px; align-items: center; height: 32px; }
+.cdm .seg button { height: 25px; padding: 4px 8px; border-radius: 26px; color: #757575; }
+.cdm .seg button[aria-pressed=true] { background: #fff; color: #1e1e1e;
+  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.3), 0 1px 1.5px rgba(0, 0, 0, 0.15); }
+.cdm .icons { display: inline-flex; gap: 2px; }
+.cdm .done { background: rgba(118, 118, 128, 0.12); box-shadow: inset 0 0 0 0.5px rgba(129, 129, 129, 0.3); }
+.cdm .done:hover { background: rgba(118, 118, 128, 0.22); }
+.cdm .tip { position: absolute; left: calc(100% + 4px); top: 50%; transform: translateY(-50%);
+  padding: 8.5px 12.5px; border-radius: 8px; background: #303030; border: 0.5px solid rgba(129, 129, 129, 0.3);
+  color: #f3f3f3; white-space: nowrap; pointer-events: none; opacity: 0; transition: opacity 0.15s ease; }
+.cdm:not(.on) .pen:hover + .tip, .cdm:not(.on) .pen:focus-visible + .tip { opacity: 1; }
+.cdm.on .tip { display: none; }
 `;
 
 export function createMarker({ container, canvasEl, camera, labelMesh, ink, onToggle, onChange = () => {}, snapshot, editor = false }) {
@@ -53,14 +74,24 @@ export function createMarker({ container, canvasEl, camera, labelMesh, ink, onTo
   const bar = document.createElement('div');
   bar.className = 'cdm';
   bar.innerHTML = `
-    <button class="pen" type="button" aria-pressed="false" aria-label="Write on the CD" title="Write on the CD">${ICONS.marker}</button>
+    <button class="pen" type="button" aria-pressed="false" aria-label="Marker mode: write on the CD">${ICONS.marker}</button>
+    <span class="tip" aria-hidden="true">Marker Mode</span>
     <span class="tools">
-      ${COLORS.map((c, i) => `<button class="swatch" type="button" data-color="${c.value}" aria-pressed="${i === 0}" aria-label="${c.name} marker" title="${c.name}" style="background:${c.value}"></button>`).join('')}
-      <button class="size" type="button" aria-label="Marker tip size" title="Tip size">Fine</button>
+      ${COLORS.map((c, i) => `<button class="swatch" type="button" data-color="${c.value}" aria-pressed="${i === 0}" aria-label="${c.name} marker" title="${c.name}" style="--c:${SWATCH[c.name] || c.value};background:var(--c);color:var(--c)"></button>`).join('')}
       <span class="sep"></span>
-      <button class="undo" type="button" aria-label="Undo" title="Undo (⌘Z / Ctrl+Z)">${ICONS.undo}</button>
+      <span class="seg" role="group" aria-label="Tip size">
+        <button class="size" type="button" data-size="fine" aria-pressed="true">Fine</button>
+        <button class="size" type="button" data-size="bold" aria-pressed="false">Bold</button>
+      </span>
+      <span class="sep"></span>
+      <span class="icons">
+        <button class="undo" type="button" aria-label="Undo" title="Undo (⌘Z / Ctrl+Z)">${ICONS.undo}</button>
+        <button class="redo" type="button" aria-label="Redo" title="Redo (⌘⇧Z / Ctrl+Y)">${ICONS.redo}</button>
+        <button class="save" type="button" aria-label="Save a picture of the CD" title="Save image">${ICONS.save}</button>
+      </span>
+      <span class="sep"></span>
       <button class="clear" type="button" aria-label="Clear writing" title="Clear">${ICONS.clear}</button>
-      <button class="save" type="button" aria-label="Save a picture of the CD" title="Save image">${ICONS.save}</button>
+      <span class="sep"></span>
       <button class="done" type="button">Done</button>
     </span>`;
   container.appendChild(bar);
@@ -166,11 +197,12 @@ export function createMarker({ container, canvasEl, camera, labelMesh, ink, onTo
       bar.querySelectorAll('.swatch').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
     });
   }
-  const sizeBtn = bar.querySelector('.size');
-  sizeBtn.addEventListener('click', () => {
-    size = size === 'fine' ? 'bold' : 'fine';
-    sizeBtn.textContent = size === 'fine' ? 'Fine' : 'Bold';
-  });
+  for (const b of bar.querySelectorAll('.size')) {
+    b.addEventListener('click', () => {
+      size = b.dataset.size;
+      bar.querySelectorAll('.size').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+    });
+  }
   const undone = []; // strokes taken back by undo, for redo
   function undo() {
     if (!strokes.length) return;
@@ -185,6 +217,7 @@ export function createMarker({ container, canvasEl, camera, labelMesh, ink, onTo
     changed();
   }
   bar.querySelector('.undo').addEventListener('click', undo);
+  bar.querySelector('.redo').addEventListener('click', redo);
 
   // Keyboard: Cmd/Ctrl+Z to undo, Cmd/Ctrl+Shift+Z (or Ctrl+Y) to redo, while the marker is out.
   // Text fields keep their own undo.
