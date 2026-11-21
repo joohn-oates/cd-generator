@@ -32,6 +32,7 @@ export const DEFAULTS = {
   speed: 1,
   tilt: 12,                 // degrees
   drag: true,
+  marker: true,             // visitors can write on the label with a marker
 };
 
 // Keys that only exist in design files, never in links.

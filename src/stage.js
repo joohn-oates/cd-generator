@@ -3,6 +3,7 @@ import { OrbitControls } from 'three/addons/OrbitControls.js';
 import { createCD } from './cd.js';
 import { drawLabel } from './label.js';
 import { drawFront, frontById } from './fronts.js';
+import { createMarker } from './marker.js';
 
 // A bright white room with a few soft light panels, like a desk by a window.
 // The shiny side reflects this, so it reads as pale silver instead of dark chrome.
@@ -101,22 +102,66 @@ export function createStage(container, { preserveDrawingBuffer = false } = {}) {
   let visible = true;
   new IntersectionObserver(([e]) => (visible = e.isIntersecting)).observe(container);
 
-  const clock = new THREE.Clock();
+  // Motion state, kept separate from what's on screen so writing mode can blend over it.
+  const mot = { rx: 0, ry: 0, rz: 0, py: 0 };
   let t = 0;
+  let writeBlend = 0; // 0 = normal motion, 1 = held still facing the viewer
+  const TAU = Math.PI * 2;
+  const front = new THREE.Vector3();
+
+  const marker = createMarker({
+    container,
+    canvasEl: renderer.domElement,
+    camera,
+    labelMesh: cd.labelMesh,
+    ink: cd.ink,
+    onToggle: () => {},
+  });
+  marker.setCanDraw(() => writeBlend > 0.98);
+
+  const clock = new THREE.Clock();
   renderer.setAnimationLoop(() => {
     const dt = Math.min(clock.getDelta(), 0.1);
     if (!visible || document.hidden) return;
-    if (design) {
+    if (!design) return;
+
+    const writing = marker.writing;
+    if (!writing) {
       const s = design.speed;
       t += dt * s;
-      if (design.motion === 'turntable') motionPivot.rotation.y += dt * s * 0.8;
-      else if (design.motion === 'spin') motionPivot.rotation.z -= dt * s * 2;
+      if (design.motion === 'turntable') mot.ry += dt * s * 0.8;
+      else if (design.motion === 'spin') mot.rz -= dt * s * 2;
       else if (design.motion === 'float') {
-        motionPivot.rotation.y = Math.sin(t * 0.9) * 0.5;
-        motionPivot.rotation.x = Math.sin(t * 0.6) * 0.15;
-        motionPivot.position.y = Math.sin(t * 1.2) * 0.04;
+        mot.ry = Math.sin(t * 0.9) * 0.5;
+        mot.rx = Math.sin(t * 0.6) * 0.15;
+        mot.py = Math.sin(t * 1.2) * 0.04;
       }
     }
+
+    // Ease in/out of writing mode
+    const prevBlend = writeBlend;
+    writeBlend = THREE.MathUtils.clamp(writeBlend + (writing ? dt : -dt) * 2.5, 0, 1);
+    const e = THREE.MathUtils.smoothstep(writeBlend, 0, 1);
+    const frontRy = Math.round(mot.ry / TAU) * TAU; // nearest "label facing forward" turn
+    const lerp = THREE.MathUtils.lerp;
+    motionPivot.rotation.set(lerp(mot.rx, 0, e), lerp(mot.ry, frontRy, e), mot.rz);
+    motionPivot.position.set(0, lerp(mot.py, 0, e), 0);
+    tiltPivot.rotation.x = lerp(-THREE.MathUtils.degToRad(design.tilt), 0, e);
+
+    if (writing) {
+      // Swing the camera round to look straight at the label.
+      front.set(0, 0, camera.position.length());
+      camera.position.lerp(front, 1 - Math.pow(0.001, dt));
+      camera.lookAt(controls.target);
+      if (writeBlend === 1 && prevBlend < 1) {
+        // Fully settled: make this the motion's starting point, so leaving is seamless.
+        mot.rx = 0;
+        mot.ry = frontRy;
+        mot.py = 0;
+        if (design.motion === 'float') t = 0;
+      }
+    }
+    controls.enabled = !!design.drag && !writing && writeBlend === 0;
     controls.update();
     renderer.render(scene, camera);
   });
@@ -128,11 +173,10 @@ export function createStage(container, { preserveDrawingBuffer = false } = {}) {
       const prev = design;
       design = next;
       cd.setStyle(next);
-      controls.enabled = !!next.drag;
-      tiltPivot.rotation.x = -THREE.MathUtils.degToRad(next.tilt);
+      marker.setAvailable(next.marker !== false);
       if (!prev || prev.motion !== next.motion) {
-        motionPivot.rotation.set(0, 0, 0);
-        motionPivot.position.set(0, 0, 0);
+        mot.rx = mot.ry = mot.rz = mot.py = 0;
+        t = 0;
       }
       if (labelChanged) {
         const v = ++labelVersion;

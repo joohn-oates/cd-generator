@@ -199,6 +199,30 @@ export function createCD() {
   label.position.z = top;
   group.add(label);
 
+  // Marker ink: a transparent layer just above the label that visitors can write on.
+  const inkCanvas = document.createElement('canvas');
+  inkCanvas.width = inkCanvas.height = 1024;
+  const inkTexture = new THREE.CanvasTexture(inkCanvas);
+  inkTexture.colorSpace = THREE.SRGBColorSpace;
+  inkTexture.anisotropy = 8;
+  const inkMat = new THREE.MeshPhysicalMaterial({
+    map: inkTexture,
+    transparent: true,
+    opacity: 0.94,
+    roughness: 0.32,       // permanent marker dries slightly glossy
+    clearcoat: 0.4,
+    clearcoatRoughness: 0.25,
+    depthWrite: false,
+    toneMapped: false,
+    envMapIntensity: 0.4,
+    polygonOffset: true,
+    polygonOffsetFactor: -2,
+  });
+  const ink = new THREE.Mesh(ring(PRINT_IN, PRINT_OUT), inkMat);
+  ink.position.z = top + 0.0003;
+  ink.renderOrder = 1;
+  group.add(ink);
+
   // Bottom: shiny rainbow data side
   const data = new THREE.Mesh(ring(PRINT_IN, PRINT_OUT - 0.005), dataMat);
   data.rotation.y = Math.PI;
@@ -270,6 +294,8 @@ export function createCD() {
 
   return {
     object: group,
+    labelMesh: label,
+    ink: { canvas: inkCanvas, texture: inkTexture },
 
     // `canvas` is the drawn label; grain is added here so design files stay grain-free.
     // `material` (brand fronts, or custom prints with knockouts) packs roughness (green)
@@ -325,7 +351,8 @@ export function createCD() {
     dispose() {
       group.traverse((o) => o.geometry && o.geometry.dispose());
       [labelMat, dataMat].forEach((m) => m.bumpMap && m.bumpMap.dispose());
-      [labelMat, dataMat, plasticMat, frostMat, silverHubMat].forEach((m) => m.dispose());
+      [labelMat, dataMat, plasticMat, frostMat, silverHubMat, inkMat].forEach((m) => m.dispose());
+      inkTexture.dispose();
       if (labelTexture) labelTexture.dispose();
       if (labelMatTexture) labelMatTexture.dispose();
     },
