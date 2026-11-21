@@ -84,6 +84,8 @@ export function createStage(container, { preserveDrawingBuffer = false, editor =
   let design = null;
   let labelVersion = 0;
 
+  let camDist = 5; // the framing distance; the camera never gets closer than this
+
   function resize() {
     const w = container.clientWidth || 1;
     const h = container.clientHeight || 1;
@@ -92,6 +94,7 @@ export function createStage(container, { preserveDrawingBuffer = false, editor =
     // Fit the disc (diameter 2 + margin) into the smaller side.
     const fit = 1.18 / Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
     const dist = camera.aspect < 1 ? fit / camera.aspect : fit;
+    camDist = dist;
     camera.position.setLength(dist);
     if (camera.position.lengthSq() === 0) camera.position.set(0, 0, dist);
     camera.updateProjectionMatrix();
@@ -109,7 +112,8 @@ export function createStage(container, { preserveDrawingBuffer = false, editor =
   let t = 0;
   let writeBlend = 0; // 0 = normal motion, 1 = held still facing the viewer
   const TAU = Math.PI * 2;
-  const front = new THREE.Vector3();
+  const front = new THREE.Vector3(0, 0, 1);
+  const dir = new THREE.Vector3();
 
   const marker = createMarker({
     container,
@@ -171,8 +175,12 @@ export function createStage(container, { preserveDrawingBuffer = false, editor =
 
     if (writing) {
       // Swing the camera round to look straight at the label.
-      front.set(0, 0, camera.position.length());
-      camera.position.lerp(front, 1 - Math.pow(0.001, dt));
+      // Swing the camera *around* the disc at the framing distance (never through it,
+      // which would pull it closer and zoom in).
+      dir.copy(camera.position).normalize();
+      if (dir.dot(front) < -0.98) dir.y += 0.05; // directly behind: pick a way round
+      dir.lerp(front, 1 - Math.pow(0.001, dt)).normalize();
+      camera.position.copy(dir).multiplyScalar(camDist);
       camera.lookAt(controls.target);
       if (writeBlend === 1 && prevBlend < 1) {
         // Fully settled: make this the motion's starting point, so leaving is seamless.
