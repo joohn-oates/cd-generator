@@ -1,5 +1,6 @@
 import * as THREE from 'three';
-import { applyGrain, labelSurfaceMap, dataSurfaceMap } from './textures.js';
+import { applyGrain, labelSurfaceMap } from './textures.js';
+import { makeDamage } from './damage.js';
 import { discType } from './discTypes.js';
 
 // Real CD proportions (120 mm disc), scaled so the radius is 1.
@@ -43,11 +44,55 @@ const LIGHTS = [
   new THREE.Vector4(-1.8, -1.6, 3.4, 0.5),
 ];
 
+// ---------------------------------------------------------------------------
+// Damage (see damage.js): holes/chips are cut out of every part of the disc;
+// scratches glint, scuffs haze and stains cloud the shiny and printed surfaces.
+// ---------------------------------------------------------------------------
+const DAMAGE_VERT_HEAD = `
+uniform float uFlipX;
+varying vec2 vDiscUv;
+varying vec3 vAxisU;
+varying vec3 vAxisV;`;
+const DAMAGE_VERT = `
+vDiscUv = vec2(uFlipX * position.x, position.y) * 0.5 + 0.5;
+vAxisU = (modelViewMatrix * vec4(uFlipX, 0.0, 0.0, 0.0)).xyz;
+vAxisV = (modelViewMatrix * vec4(0.0, 1.0, 0.0, 0.0)).xyz;`;
+const DAMAGE_FRAG_HEAD = `
+uniform sampler2D uDamageSurf;
+uniform sampler2D uDamageBody;
+uniform float uDamageSide;
+uniform float uScratchGain;
+varying vec2 vDiscUv;
+varying vec3 vAxisU;
+varying vec3 vAxisV;`;
+const DAMAGE_CUT = `
+if (texture2D(uDamageBody, vDiscUv).r < 0.5) discard;`;
+
+function injectDamageVertex(shader, flipX) {
+  shader.uniforms.uFlipX = { value: flipX ? -1 : 1 };
+  shader.vertexShader = shader.vertexShader
+    .replace('#include <common>', '#include <common>' + DAMAGE_VERT_HEAD)
+    .replace('#include <project_vertex>', '#include <project_vertex>' + DAMAGE_VERT);
+}
+
+// Plastic parts, the ink layer etc.: only holes and chips.
+function addCutout(material, damage, key) {
+  material.onBeforeCompile = (shader) => {
+    Object.assign(shader.uniforms, damage);
+    injectDamageVertex(shader, false);
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <common>', '#include <common>' + DAMAGE_FRAG_HEAD)
+      .replace('#include <clipping_planes_fragment>', '#include <clipping_planes_fragment>' + DAMAGE_CUT);
+  };
+  material.customProgramCacheKey = () => 'cd-cutout-' + key;
+}
+
 // metalWeighted: rainbow strength follows the metalness map (used on brand fronts, where
 // knocked-out mirror areas diffract strongly, the lacquer faintly and ink not at all).
-function addDiffraction(material, uniforms, { metalWeighted = false } = {}) {
+function addDiffraction(material, uniforms, { metalWeighted = false, flipX = false, damage } = {}) {
   material.onBeforeCompile = (shader) => {
-    Object.assign(shader.uniforms, uniforms);
+    Object.assign(shader.uniforms, uniforms, damage);
+    injectDamageVertex(shader, flipX);
 
     shader.vertexShader = shader.vertexShader
       .replace('#include <common>', '#include <common>\nvarying vec3 vRadialView;')
@@ -66,9 +111,10 @@ diffuseColor.rgb *= mix(vec3(1.0), uKnockTint, metalnessFactor * uKnockTintAmoun
       );
     }
     shader.fragmentShader = frag
+      .replace('#include <clipping_planes_fragment>', '#include <clipping_planes_fragment>' + DAMAGE_CUT)
       .replace(
         '#include <common>',
-        `#include <common>
+        `#include <common>${DAMAGE_FRAG_HEAD}
 varying vec3 vRadialView;
 uniform vec4 uLights[${LIGHTS.length}];
 uniform float uRainbow;
@@ -124,6 +170,30 @@ vec3 spectrum(float lam) {
     outgoingLight = mix(outgoingLight, tint * (0.75 + 0.6 * k), k * 0.9);
   }
 }
+{
+  // Wear and damage
+  vec3 N = normal;
+  vec3 P = -vViewPosition;
+  vec3 V = normalize(vViewPosition);
+  vec3 sf = texture2D(uDamageSurf, vDiscUv).rgb;
+  vec3 bd = texture2D(uDamageBody, vDiscUv).rgb;
+  outgoingLight *= 1.0 - bd.g * 0.7 * uDamageSide;                                     // grime
+  outgoingLight = mix(outgoingLight, vec3(0.9, 0.87, 0.78), bd.b * 0.85 * uDamageSide);  // milky rot stain
+  outgoingLight = mix(outgoingLight, vec3(0.86, 0.88, 0.9), sf.b * 0.75 * uDamageSide);  // scuff haze
+  if (sf.r > 0.004) {
+    // A scratch is a tiny groove: it flashes when light, groove direction and eye line up.
+    float a = sf.g * PI;
+    vec3 Ts = normalize(cos(a) * vAxisU - sin(a) * vAxisV);
+    float g = 0.0;
+    for (int i = 0; i < ${LIGHTS.length}; i++) {
+      vec3 L = normalize((viewMatrix * vec4(uLights[i].xyz, 1.0)).xyz - P);
+      if (dot(L, N) <= 0.0) continue;
+      float x = dot(Ts, L + V);
+      g += exp(-x * x / 0.012) * uLights[i].w;
+    }
+    outgoingLight += vec3(0.95, 0.97, 1.0) * sf.r * (0.16 + 2.6 * g) * uScratchGain;
+  }
+}
 #include <opaque_fragment>`
       );
   };
@@ -132,6 +202,21 @@ vec3 spectrum(float lam) {
 
 export function createCD() {
   const group = new THREE.Group();
+
+  // Damage maps shared by every part of the disc (start undamaged).
+  const blank = (color) => {
+    const c = document.createElement('canvas');
+    c.width = c.height = 4;
+    const x = c.getContext('2d');
+    x.fillStyle = color;
+    x.fillRect(0, 0, 4, 4);
+    return new THREE.CanvasTexture(c);
+  };
+  const damage = {
+    uDamageSurf: { value: blank('#000') },
+    uDamageBody: { value: blank('#f00') },
+  };
+  const side = (s, gain) => ({ ...damage, uDamageSide: { value: s }, uScratchGain: { value: gain } });
 
   // toneMapped: false keeps printed colours true (custom labels and brand fronts).
   const labelMat = new THREE.MeshPhysicalMaterial({
@@ -147,7 +232,7 @@ export function createCD() {
     uGroove: { value: 1600 },
     uStreak: { value: 0.085 },
   };
-  addDiffraction(labelMat, labelDiffraction, { metalWeighted: true });
+  addDiffraction(labelMat, labelDiffraction, { metalWeighted: true, damage: side(0.5, 0.22) });
 
   const diffraction = {
     uLights: { value: LIGHTS },
@@ -166,7 +251,7 @@ export function createCD() {
     iridescenceThicknessRange: [300, 600],
     side: THREE.DoubleSide,
   });
-  addDiffraction(dataMat, diffraction);
+  addDiffraction(dataMat, diffraction, { flipX: true, damage: side(1, 1) });
 
   const plasticMat = new THREE.MeshPhysicalMaterial({
     color: 0xe8eef2,
@@ -190,6 +275,9 @@ export function createCD() {
 
   // Used when the centre hub is set to "Silver"
   const silverHubMat = new THREE.MeshPhysicalMaterial({ color: 0xcfd4d8, metalness: 1, roughness: 0.25 });
+  addCutout(plasticMat, side(0, 0), 'plastic');
+  addCutout(frostMat, side(0, 0), 'frost');
+  addCutout(silverHubMat, side(0, 0), 'silver');
 
   const top = T / 2 + 0.0005;
   const bottom = -T / 2 - 0.0005;
@@ -218,6 +306,7 @@ export function createCD() {
     polygonOffset: true,
     polygonOffsetFactor: -2,
   });
+  addCutout(inkMat, side(0, 0), 'ink');
   const ink = new THREE.Mesh(ring(PRINT_IN, PRINT_OUT), inkMat);
   ink.position.z = top + 0.0003;
   ink.renderOrder = 1;
@@ -257,7 +346,7 @@ export function createCD() {
   let labelTexture = null;
   let labelMatTexture = null;
   let lastLabelSurface = null;
-  let lastDataSurface = null;
+  let lastDamage = null;
 
   // How the printed side is lit: plain ink, or per-pixel materials (brand fronts / knockouts).
   let labelMapped = false;
@@ -335,16 +424,31 @@ export function createCD() {
       applyLabelMode(design);
       for (const m of hubMeshes) m.material = design.hub === 'silver' ? silverHubMat : plasticMat;
 
-      const labelKey = `${design.texture}|${design.wear}`;
-      if (labelKey !== lastLabelSurface) {
-        lastLabelSurface = labelKey;
-        const on = design.texture > 0 || design.wear > 0;
-        swap(labelMat, 'bumpMap', on ? labelSurfaceMap(design.texture, design.wear) : null);
+      if (design.texture !== lastLabelSurface) {
+        lastLabelSurface = design.texture;
+        swap(labelMat, 'bumpMap', design.texture > 0 ? labelSurfaceMap(design.texture, 0) : null);
       }
-      if (design.wear !== lastDataSurface) {
-        lastDataSurface = design.wear;
-        swap(dataMat, 'bumpMap', dataSurfaceMap(design.wear));
-        dataMat.bumpScale = 0.12;
+
+      const d = {
+        wear: design.wear || 0,
+        scuffs: design.scuffs || 0,
+        dust: design.dust || 0,
+        rot: design.rot || 0,
+        chips: design.chips || 0,
+      };
+      const damageKey = JSON.stringify(d) + '|' + (design.damageSeed || 1);
+      if (damageKey !== lastDamage) {
+        lastDamage = damageKey;
+        const none = Object.values(d).every((v) => v <= 0);
+        const maps = none ? null : makeDamage(d, design.damageSeed || 1);
+        const set = (u, canvas, fallback) => {
+          damage[u].value.dispose();
+          const tex = canvas ? new THREE.CanvasTexture(canvas) : blank(fallback);
+          tex.anisotropy = 8;
+          damage[u].value = tex;
+        };
+        set('uDamageSurf', maps && maps.surface, '#000');
+        set('uDamageBody', maps && maps.body, '#f00');
       }
     },
 

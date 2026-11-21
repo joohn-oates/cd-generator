@@ -25,7 +25,12 @@ export const DEFAULTS = {
   rainbow: 1,               // 0..1 strength of the moving rainbow streaks
   shine: 0.85,              // 0..1 (1 = mirror)
   hub: 'clear',             // 'clear' | 'silver'
-  wear: 0.25,               // 0..1 fine scratches on both sides
+  wear: 0.25,               // 0..1 scratches (glint as the disc moves)
+  scuffs: 0.1,              // 0..1 hazy worn patches
+  dust: 0.1,                // 0..1 specks and grime
+  rot: 0,                   // 0..1 disc rot: flaking foil, see-through holes, milky stains
+  chips: 0,                 // 0..1 bites out of the edge with cracks
+  damageSeed: 1,            // which random damage pattern
 
   // Motion
   motion: 'turntable',      // 'turntable' | 'spin' | 'float' | 'none'

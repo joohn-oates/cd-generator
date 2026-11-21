@@ -68,10 +68,20 @@
       <label id="tintRow">Custom colour <input data-key="tint" type="color"></label>
       <label>Rainbow <input data-key="rainbow" type="range" min="0" max="1" step="0.01"></label>
       <label>Shine <input data-key="shine" type="range" min="0" max="1" step="0.01"></label>
-      <label>Wear &amp; scratches <input data-key="wear" type="range" min="0" max="1" step="0.01"></label>
       <label>Centre hub
         <select data-key="hub"><option value="clear">Clear plastic</option><option value="silver">Silver</option></select>
       </label>
+    </section>
+
+    <section>
+      <h2>Condition</h2>
+      <div id="conditions" class="chips" role="radiogroup" aria-label="Condition"></div>
+      <label>Scratches <input data-key="wear" type="range" min="0" max="1" step="0.01"></label>
+      <label>Scuffs &amp; haze <input data-key="scuffs" type="range" min="0" max="1" step="0.01"></label>
+      <label>Dust &amp; grime <input data-key="dust" type="range" min="0" max="1" step="0.01"></label>
+      <label>Disc rot (peeling, holes) <input data-key="rot" type="range" min="0" max="1" step="0.01"></label>
+      <label>Chipped edge <input data-key="chips" type="range" min="0" max="1" step="0.01"></label>
+      <button id="reroll" class="secondary" type="button">Re-roll damage pattern</button>
     </section>
 
     <section>

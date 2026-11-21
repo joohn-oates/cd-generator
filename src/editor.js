@@ -3,6 +3,7 @@ import { DEFAULTS, encodeDesign, loadDesignFromLocation, slugify } from './desig
 import { drawLabel, imageHasAlpha, loadImage } from './label.js';
 import { drawTemplate } from './template.js';
 import { encodeInk } from './ink.js';
+import { CONDITIONS } from './damage.js';
 import { DISC_TYPES, discType } from './discTypes.js';
 import { FRONTS, frontById, drawFront, resolveFrontId } from './fronts.js';
 
@@ -58,6 +59,11 @@ function syncControls() {
   const front = frontById(design.front);
   $('#frontAbout').textContent = front ? front.note : 'Your own printed label: colours, text and artwork.';
   $('#customPrint').hidden = !!front;
+  for (const b of document.querySelectorAll('#conditions button')) {
+    const c = CONDITIONS.find((x) => x.id === b.dataset.condition);
+    const match = DAMAGE_KEYS.every((k) => Math.abs((design[k] || 0) - c.values[k]) < 0.005);
+    b.setAttribute('aria-checked', String(match));
+  }
   const type = discType(design.discType);
   $('#discAbout').textContent = type.about;
   $('#tintRow').hidden = type.id !== 'custom';
@@ -83,6 +89,27 @@ for (const f of [...FRONTS, { id: 'custom', name: 'Custom print' }]) {
     });
   }
 }
+
+// Condition presets
+const DAMAGE_KEYS = ['wear', 'scuffs', 'dust', 'rot', 'chips'];
+for (const c of CONDITIONS) {
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.className = 'chip';
+  b.dataset.condition = c.id;
+  b.setAttribute('role', 'radio');
+  b.textContent = c.name;
+  b.addEventListener('click', () => {
+    Object.assign(design, c.values);
+    syncControls();
+    update(false);
+  });
+  $('#conditions').appendChild(b);
+}
+$('#reroll').addEventListener('click', () => {
+  design.damageSeed = (design.damageSeed || 1) + 1;
+  update(false);
+});
 
 // Disc type swatches
 for (const t of DISC_TYPES) {
