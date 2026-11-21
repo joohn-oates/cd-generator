@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/OrbitControls.js';
 import { createCD } from './cd.js';
 import { drawLabel } from './label.js';
+import { drawFront, frontById } from './fronts.js';
 
 // A bright white room with a few soft light panels, like a desk by a window.
 // The shiny side reflects this, so it reads as pale silver instead of dark chrome.
@@ -135,8 +136,14 @@ export function createStage(container, { preserveDrawingBuffer = false } = {}) {
       }
       if (labelChanged) {
         const v = ++labelVersion;
-        const canvas = await drawLabel(next);
-        if (v === labelVersion) cd.setLabel(canvas, next, renderer.capabilities.getMaxAnisotropy());
+        const aniso = renderer.capabilities.getMaxAnisotropy();
+        if (frontById(next.front)) {
+          const f = await drawFront(next.front);
+          if (v === labelVersion) cd.setLabel(f.color, next, aniso, f.material);
+        } else {
+          const canvas = await drawLabel(next);
+          if (v === labelVersion) cd.setLabel(canvas, next, aniso);
+        }
       }
     },
 

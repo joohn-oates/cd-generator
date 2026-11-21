@@ -43,7 +43,9 @@ const LIGHTS = [
   new THREE.Vector4(-1.8, -1.6, 3.4, 0.5),
 ];
 
-function addDiffraction(material, uniforms) {
+// metalWeighted: rainbow strength follows the metalness map (used on brand fronts, where
+// knocked-out mirror areas diffract strongly, the lacquer faintly and ink not at all).
+function addDiffraction(material, uniforms, { metalWeighted = false } = {}) {
   material.onBeforeCompile = (shader) => {
     Object.assign(shader.uniforms, uniforms);
 
@@ -107,7 +109,7 @@ vec3 spectrum(float lam) {
     }
     vec3 tint = rainbow / max(mask, 1e-4);
     tint *= mix(vec3(1.0), uDye, 0.5);
-    float k = clamp(mask, 0.0, 1.0) * uRainbow;
+    float k = clamp(mask, 0.0, 1.0) * uRainbow${metalWeighted ? ' * pow(metalnessFactor, 5.0)' : ''};
     // Replace silver with saturated colour inside the streak, brighten slightly at its core
     outgoingLight = mix(outgoingLight, tint * (0.75 + 0.6 * k), k * 0.9);
   }
@@ -115,17 +117,25 @@ vec3 spectrum(float lam) {
 #include <opaque_fragment>`
       );
   };
-  material.customProgramCacheKey = () => 'cd-diffraction';
+  material.customProgramCacheKey = () => (metalWeighted ? 'cd-diffraction-front' : 'cd-diffraction');
 }
 
 export function createCD() {
   const group = new THREE.Group();
 
-  // toneMapped: false keeps label colours true to what you pick in the editor.
+  // toneMapped: false keeps printed colours true (custom labels and brand fronts).
   const labelMat = new THREE.MeshPhysicalMaterial({
     roughness: 0.4, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.08,
     toneMapped: false, envMapIntensity: 0.5,
   });
+  const labelDiffraction = {
+    uLights: { value: LIGHTS },
+    uRainbow: { value: 0 },
+    uDye: { value: new THREE.Color(1, 1, 1) },
+    uGroove: { value: 1600 },
+    uStreak: { value: 0.085 },
+  };
+  addDiffraction(labelMat, labelDiffraction, { metalWeighted: true });
 
   const diffraction = {
     uLights: { value: LIGHTS },
@@ -209,6 +219,7 @@ export function createCD() {
   }
 
   let labelTexture = null;
+  let labelMatTexture = null;
   let lastLabelSurface = null;
   let lastDataSurface = null;
 
@@ -222,15 +233,24 @@ export function createCD() {
     object: group,
 
     // `canvas` is the drawn label; grain is added here so design files stay grain-free.
-    setLabel(canvas, design, maxAnisotropy = 8) {
-      applyGrain(canvas, design.grain);
+    // `material` (brand fronts only) packs roughness (green) and metalness (blue) per pixel.
+    setLabel(canvas, design, maxAnisotropy = 8, material = null) {
+      applyGrain(canvas, material ? design.grain * 0.5 : design.grain);
       const tex = new THREE.CanvasTexture(canvas);
       tex.colorSpace = THREE.SRGBColorSpace;
       tex.anisotropy = maxAnisotropy;
       labelMat.map = tex;
-      labelMat.needsUpdate = true;
       if (labelTexture) labelTexture.dispose();
       labelTexture = tex;
+
+      if (labelMatTexture) labelMatTexture.dispose();
+      labelMatTexture = null;
+      if (material) {
+        labelMatTexture = new THREE.CanvasTexture(material);
+        labelMatTexture.anisotropy = maxAnisotropy;
+      }
+      labelMat.metalnessMap = labelMat.roughnessMap = labelMatTexture;
+      labelMat.needsUpdate = true;
     },
 
     setStyle(design) {
@@ -243,8 +263,25 @@ export function createCD() {
       diffraction.uRainbow.value = design.rainbow;
       dataMat.iridescence = design.rainbow * 0.12;
       dataMat.roughness = 0.03 + (1 - design.shine) * 0.45;
-      labelMat.roughness = design.finish === 'matte' ? 0.85 : 0.35;
-      labelMat.clearcoat = design.finish === 'matte' ? 0 : 1;
+      const brand = design.front && design.front !== 'custom';
+      if (brand) {
+        // Values are multiplied by the per-pixel material map.
+        labelMat.metalness = 1;
+        labelMat.roughness = 1;
+        labelMat.clearcoat = 0.6;
+        labelMat.clearcoatRoughness = 0.12;
+        labelMat.envMapIntensity = 0.8;
+        labelDiffraction.uRainbow.value = design.rainbow;
+        labelMat.bumpScale = 0.12; // subtle on metal lacquer
+      } else {
+        labelMat.metalness = 0;
+        labelMat.roughness = design.finish === 'matte' ? 0.85 : 0.35;
+        labelMat.clearcoat = design.finish === 'matte' ? 0 : 1;
+        labelMat.clearcoatRoughness = 0.08;
+        labelMat.envMapIntensity = 0.5;
+        labelDiffraction.uRainbow.value = 0;
+        labelMat.bumpScale = 0.35;
+      }
       for (const m of hubMeshes) m.material = design.hub === 'silver' ? silverHubMat : plasticMat;
 
       const labelKey = `${design.texture}|${design.wear}`;
@@ -252,7 +289,6 @@ export function createCD() {
         lastLabelSurface = labelKey;
         const on = design.texture > 0 || design.wear > 0;
         swap(labelMat, 'bumpMap', on ? labelSurfaceMap(design.texture, design.wear) : null);
-        labelMat.bumpScale = 0.35;
       }
       if (design.wear !== lastDataSurface) {
         lastDataSurface = design.wear;
@@ -266,6 +302,7 @@ export function createCD() {
       [labelMat, dataMat].forEach((m) => m.bumpMap && m.bumpMap.dispose());
       [labelMat, dataMat, plasticMat, frostMat, silverHubMat].forEach((m) => m.dispose());
       if (labelTexture) labelTexture.dispose();
+      if (labelMatTexture) labelMatTexture.dispose();
     },
   };
 }

@@ -17,7 +17,15 @@
     </header>
 
     <section>
-      <h2>Label</h2>
+      <h2>Front</h2>
+      <div id="fronts" class="swatches" role="radiogroup" aria-label="Front"></div>
+      <p id="frontAbout" class="hint"></p>
+      <label>Grain <input data-key="grain" type="range" min="0" max="1" step="0.01"></label>
+      <label>Surface texture <input data-key="texture" type="range" min="0" max="1" step="0.01"></label>
+    </section>
+
+    <section id="customPrint">
+      <h2>Custom print</h2>
       <label>Title <input data-key="title" type="text" maxlength="40"></label>
       <label>Subtitle <input data-key="subtitle" type="text" maxlength="60"></label>
       <div class="row">
@@ -37,8 +45,6 @@
         <label>Colour 1 <input data-key="bg1" type="color"></label>
         <label class="bg2">Colour 2 <input data-key="bg2" type="color"></label>
       </div>
-      <label>Grain <input data-key="grain" type="range" min="0" max="1" step="0.01"></label>
-      <label>Surface texture <input data-key="texture" type="range" min="0" max="1" step="0.01"></label>
       <div class="upload">
         <label class="button secondary">Upload artwork…
           <input id="artwork" type="file" accept="image/*" hidden>

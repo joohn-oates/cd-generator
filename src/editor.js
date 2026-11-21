@@ -2,12 +2,14 @@ import { createStage } from './stage.js';
 import { DEFAULTS, encodeDesign, loadDesignFromLocation, slugify } from './design.js';
 import { drawLabel } from './label.js';
 import { DISC_TYPES, discType } from './discTypes.js';
+import { FRONTS, frontById, drawFront } from './fronts.js';
 
 const $ = (s) => document.querySelector(s);
 const stageEl = $('#stage');
 const stage = createStage(stageEl, { preserveDrawingBuffer: true });
 
-const LABEL_KEYS = ['bgStyle', 'bg1', 'bg2', 'title', 'subtitle', 'textColor', 'grain'];
+const LABEL_KEYS = ['bgStyle', 'bg1', 'bg2', 'title', 'subtitle', 'textColor', 'grain', 'front'];
+const hasCustomArt = () => design.front === 'custom' && !!design.labelImage;
 
 let design = { ...DEFAULTS };
 try {
@@ -36,9 +38,36 @@ function syncControls() {
   for (const b of document.querySelectorAll('#discTypes button')) {
     b.setAttribute('aria-checked', String(b.dataset.type === design.discType));
   }
+  for (const b of document.querySelectorAll('#fronts button')) {
+    b.setAttribute('aria-checked', String(b.dataset.front === design.front));
+  }
+  const front = frontById(design.front);
+  $('#frontAbout').textContent = front ? front.note : 'Your own printed label: colours, text and artwork.';
+  $('#customPrint').hidden = !!front;
   const type = discType(design.discType);
   $('#discAbout').textContent = type.about;
   $('#tintRow').hidden = type.id !== 'custom';
+}
+
+// Front swatches: thumbnails are rendered from the real front artwork.
+const CUSTOM_DOT = 'background: linear-gradient(135deg, #ff4f6e, #6a5cff)';
+for (const f of [...FRONTS, { id: 'custom', name: 'Custom print' }]) {
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.dataset.front = f.id;
+  b.setAttribute('role', 'radio');
+  b.innerHTML = `<span class="dot" style="${f.id === 'custom' ? CUSTOM_DOT : ''}"></span><span class="txt">${f.name}</span>`;
+  b.addEventListener('click', () => {
+    design.front = f.id;
+    syncControls();
+    update(true);
+  });
+  $('#fronts').appendChild(b);
+  if (f.id !== 'custom') {
+    drawFront(f.id, 96).then((r) => {
+      b.querySelector('.dot').style.background = `center / cover url(${r.color.toDataURL()})`;
+    });
+  }
 }
 
 // Disc type swatches
@@ -111,7 +140,7 @@ $('#getLink').addEventListener('click', () => {
   const name = slugify($('#name').value);
   $('#name').value = name;
   const link = new URL(viewerBase);
-  if (design.labelImage) {
+  if (hasCustomArt()) {
     link.searchParams.set('d', name);
     $('#fileName').textContent = `${name}.json`;
   } else {
@@ -119,7 +148,7 @@ $('#getLink').addEventListener('click', () => {
   }
   $('#link').value = link.href;
   $('#openLink').href = link.href;
-  $('#fileSteps').hidden = !design.labelImage;
+  $('#fileSteps').hidden = !hasCustomArt();
   $('#output').hidden = false;
 });
 

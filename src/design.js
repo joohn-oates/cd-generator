@@ -3,7 +3,11 @@
 // Designs with an uploaded image are saved as a file in /designs and loaded with ?d=name.
 
 export const DEFAULTS = {
-  // Label (printed top side)
+  // Front: a blank CD-R brand style ('tdk' | 'maxell' | 'imation' | 'verbatim' | 'sony'),
+  // or 'custom' for your own printed label below.
+  front: 'tdk',
+
+  // Custom printed label (front: 'custom')
   bgStyle: 'linear',        // 'solid' | 'linear' | 'radial'
   bg1: '#ff4f6e',
   bg2: '#6a5cff',
@@ -52,13 +56,15 @@ export function encodeDesign(design) {
   for (const [k, v] of Object.entries(design)) {
     if (FILE_ONLY.includes(k)) continue;
     if (k === 'tint' && design.discType !== 'custom') continue;
-    if (k in DEFAULTS && DEFAULTS[k] !== v) diff[k] = v;
+    if (k === 'front' || (k in DEFAULTS && DEFAULTS[k] !== v)) diff[k] = v; // front always stored
   }
   return toBase64Url(JSON.stringify(diff));
 }
 
 // Designs made before disc types existed used a free tint: keep them as "custom".
+// Designs made before brand fronts existed always had a custom printed label.
 function upgrade(d) {
+  if (!('front' in d)) d.front = 'custom';
   if (!('discType' in d) && d.tint && d.tint !== DEFAULTS.tint) d.discType = 'custom';
   return d;
 }
