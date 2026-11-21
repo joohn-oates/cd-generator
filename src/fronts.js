@@ -184,6 +184,80 @@ function base(size, face) {
   return p;
 }
 
+// ---------------------------------------------------------------------------
+// Image fronts: designed elsewhere (e.g. Figma, using the artwork template) and
+// exported as a square PNG with transparency into the /fronts folder.
+//
+// mode 'print'    – transparent = bare mirror; your shapes are printed ink on top
+// mode 'knockout' – the face is solid lacquer; your shapes are knocked out to mirror
+// ---------------------------------------------------------------------------
+
+const imageCache = new Map();
+function loadFrontImage(file) {
+  if (!imageCache.has(file)) {
+    imageCache.set(
+      file,
+      new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = () => reject(new Error(`Could not load front image ${file}`));
+        img.src = new URL(`../fronts/${file}`, import.meta.url).href;
+      })
+    );
+  }
+  return imageCache.get(file);
+}
+
+const MATERIAL = (k) => `rgb(0, ${Math.round(k.rough * 255)}, ${Math.round(k.metal * 255)})`;
+const MIRROR_KIND = { rough: 0.04, metal: 1 };
+
+// Draws `img` onto `target`; with `fill`, the image's shapes are recoloured to that fill.
+function overlay(target, img, fill) {
+  const size = target.width;
+  if (!fill) {
+    target.getContext('2d').drawImage(img, 0, 0, size, size);
+    return;
+  }
+  const tmp = document.createElement('canvas');
+  tmp.width = tmp.height = size;
+  const t = tmp.getContext('2d');
+  t.drawImage(img, 0, 0, size, size);
+  t.globalCompositeOperation = 'source-in';
+  t.fillStyle = fill;
+  t.fillRect(0, 0, size, size);
+  target.getContext('2d').drawImage(tmp, 0, 0);
+}
+
+function imageFront({ id, name, note, file, mode = 'print', face, ink = { rough: 0.5, metal: 0 }, mirror = '#e9edf1' }) {
+  return {
+    id,
+    name,
+    note,
+    async draw(size) {
+      const img = await loadFrontImage(file);
+      // Full-size renders use the image's own resolution (up to 2048) so text stays crisp.
+      const S = size >= 1024 ? Math.min(2048, Math.max(size, img.width)) : size;
+      let p;
+      if (mode === 'print') {
+        p = painter(S, face);
+        p.mirror(mirror).fillAll();
+        p.mirror(face.hubBand || '#9ea5ab').ring(0.355, 0.405);
+      } else {
+        p = base(S, face);
+      }
+      const { color, material } = p.done();
+      if (mode === 'print') {
+        overlay(color, img, null);
+        overlay(material, img, MATERIAL(ink));
+      } else {
+        overlay(color, img, mirror);
+        overlay(material, img, MATERIAL(MIRROR_KIND));
+      }
+      return { color, material };
+    },
+  };
+}
+
 export const FRONTS = [
   {
     id: 'tdk',
@@ -290,6 +364,23 @@ export const FRONTS = [
       return p.done();
     },
   },
+  imageFront({
+    id: 'oatey',
+    name: 'Oatey',
+    note: 'White print on a bare mirror disc',
+    file: 'oatey_cd.png',
+    mode: 'print',
+    face: { color: '#e9edf1', metal: 1, rough: 0.04, hubBand: '#9ea5ab' },
+    ink: { rough: 0.45, metal: 0 },
+  }),
+  imageFront({
+    id: 'oatey-knockout',
+    name: 'Oatey (knockout)',
+    note: 'Black lacquer face with mirror lettering',
+    file: 'oatey_cd.png',
+    mode: 'knockout',
+    face: { color: '#1d1f23', metal: 0.35, rough: 0.3, hubBand: '#8c949b', rim: '#b9c4c2' },
+  }),
 ];
 
 export function frontById(id) {
@@ -300,5 +391,5 @@ export async function drawFront(id, size = 1024) {
   const front = frontById(id);
   if (!front) return null;
   await loadFonts();
-  return front.draw(size);
+  return await front.draw(size);
 }
