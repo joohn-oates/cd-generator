@@ -58,7 +58,7 @@ export function createMarker({ container, canvasEl, camera, labelMesh, ink, onTo
       ${COLORS.map((c, i) => `<button class="swatch" type="button" data-color="${c.value}" aria-pressed="${i === 0}" aria-label="${c.name} marker" title="${c.name}" style="background:${c.value}"></button>`).join('')}
       <button class="size" type="button" aria-label="Marker tip size" title="Tip size">Fine</button>
       <span class="sep"></span>
-      <button class="undo" type="button" aria-label="Undo" title="Undo">${ICONS.undo}</button>
+      <button class="undo" type="button" aria-label="Undo" title="Undo (⌘Z / Ctrl+Z)">${ICONS.undo}</button>
       <button class="clear" type="button" aria-label="Clear writing" title="Clear">${ICONS.clear}</button>
       <button class="save" type="button" aria-label="Save a picture of the CD" title="Save image">${ICONS.save}</button>
       <button class="done" type="button">Done</button>
@@ -134,6 +134,7 @@ export function createMarker({ container, canvasEl, camera, labelMesh, ink, onTo
     current = null;
     if (done.points.some(Boolean)) {
       strokes.push(done);
+      undone.length = 0; // a new stroke ends the redo history
       drawStroke(bctx, done);
       changed();
     }
@@ -170,15 +171,40 @@ export function createMarker({ container, canvasEl, camera, labelMesh, ink, onTo
     size = size === 'fine' ? 'bold' : 'fine';
     sizeBtn.textContent = size === 'fine' ? 'Fine' : 'Bold';
   });
-  bar.querySelector('.undo').addEventListener('click', () => {
+  const undone = []; // strokes taken back by undo, for redo
+  function undo() {
     if (!strokes.length) return;
-    strokes.pop();
+    undone.push(strokes.pop());
     redraw();
     changed();
+  }
+  function redo() {
+    if (!undone.length) return;
+    strokes.push(undone.pop());
+    redraw();
+    changed();
+  }
+  bar.querySelector('.undo').addEventListener('click', undo);
+
+  // Keyboard: Cmd/Ctrl+Z to undo, Cmd/Ctrl+Shift+Z (or Ctrl+Y) to redo, while the marker is out.
+  // Text fields keep their own undo.
+  window.addEventListener('keydown', (e) => {
+    if (!writing || !(e.metaKey || e.ctrlKey) || e.altKey) return;
+    const t = e.target;
+    if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+    const key = e.key.toLowerCase();
+    if (key === 'z' && !e.shiftKey) {
+      e.preventDefault();
+      undo();
+    } else if ((key === 'z' && e.shiftKey) || (key === 'y' && e.ctrlKey)) {
+      e.preventDefault();
+      redo();
+    }
   });
   bar.querySelector('.clear').addEventListener('click', () => {
     if (!strokes.length) return;
     strokes.length = 0;
+    undone.length = 0;
     redraw();
     changed();
   });
