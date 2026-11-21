@@ -48,6 +48,12 @@ function syncControls() {
     if (el.type === 'checkbox') el.checked = !!v;
     else el.value = v;
   }
+  // Slider track fill (cyan up to the thumb)
+  for (const el of controls) {
+    if (el.type !== 'range') continue;
+    const pct = ((el.value - el.min) / (el.max - el.min)) * 100;
+    el.style.setProperty('--pct', `${pct}%`);
+  }
   $('.bg2').style.display = design.bgStyle === 'solid' ? 'none' : '';
   $('#removeArt').hidden = !design.labelImage;
   updateArtInfo();
