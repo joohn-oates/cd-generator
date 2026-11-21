@@ -6,8 +6,6 @@ import { discType } from './discTypes.js';
 // Real CD proportions (120 mm disc), scaled so the radius is 1.
 const R = 1;
 const HOLE = 0.125;      // 15 mm centre hole
-const STACK_IN = 0.29;   // raised stacking ring
-const STACK_OUT = 0.32;
 const PRINT_IN = 0.36;   // where the printed label / mirror area starts
 const PRINT_OUT = 0.985;
 const T = 0.02;          // 1.2 mm thick
@@ -20,6 +18,49 @@ function ring(inner, outer, segments = 192) {
   for (let i = 0; i < pos.count; i++) {
     uv.setXY(i, pos.getX(i) / (2 * R) + 0.5, pos.getY(i) / (2 * R) + 0.5);
   }
+  return g;
+}
+
+// The clear centre hub as a solid with real relief (the cross-section is spun around the
+// axis): a bevel at the hole, a small ridge, the raised stacking ring and a fine ridge where
+// the label starts. Each curved ridge catches the light as a thin arc, as on a real disc.
+function hubGeometry() {
+  const half = T / 2;
+  const out = PRINT_IN + 0.006;
+  const pts = [];
+  const add = (r, z) => pts.push(new THREE.Vector2(r, z));
+  // Smooth rounded ridge between r0 and r1, `h` high, on the side `s` (+1 top, -1 bottom)
+  const ridge = (r0, r1, h, s, n = 10) => {
+    for (let i = 0; i <= n; i++) {
+      const t = i / n;
+      add(r0 + (r1 - r0) * t, s * (half + h * Math.sin(Math.PI * t) ** 1.5));
+    }
+  };
+  const surface = (s) => {
+    const seq = [
+      () => { add(HOLE + 0.002, s * (half - 0.0012)); add(HOLE + 0.007, s * half); }, // hole bevel
+      () => ridge(0.19, 0.215, 0.0016, s),
+      () => ridge(0.275, 0.335, s > 0 ? 0.003 : 0.0042, s, 16), // stacking ring (taller underneath)
+      () => ridge(0.35, 0.36, 0.0009, s, 6),
+      () => add(out, s * half),
+    ];
+    if (s > 0) seq.forEach((f) => f());
+    else {
+      // same features, walked inward
+      const tmp = [];
+      const keep = pts.length;
+      seq.forEach((f) => f());
+      tmp.push(...pts.splice(keep));
+      pts.push(...tmp.reverse());
+    }
+  };
+  add(HOLE, half - 0.004);
+  surface(1);
+  surface(-1);
+  add(HOLE, -half + 0.004);
+  add(HOLE, half - 0.004); // close the loop up the hole wall
+  const g = new THREE.LatheGeometry(pts, 160);
+  g.rotateX(Math.PI / 2); // lathe axis (y) becomes the disc axis (z)
   return g;
 }
 
@@ -264,11 +305,16 @@ export function createCD() {
     side: THREE.DoubleSide,
   });
 
-  const frostMat = new THREE.MeshPhysicalMaterial({
-    color: 0xdfe5ea,
-    roughness: 0.6,
+  // Clear polycarbonate hub: light, see-through plastic; the shader below draws the ridges.
+  const clearHubMat = new THREE.MeshPhysicalMaterial({
+    color: 0xe4e9ed,
+    metalness: 0,
+    roughness: 0.08,
+    ior: 1.58,
+    clearcoat: 1,
+    clearcoatRoughness: 0.05,
     transparent: true,
-    opacity: 0.55,
+    opacity: 0.3,
     depthWrite: false,
     side: THREE.DoubleSide,
   });
@@ -276,7 +322,41 @@ export function createCD() {
   // Used when the centre hub is set to "Silver"
   const silverHubMat = new THREE.MeshPhysicalMaterial({ color: 0xcfd4d8, metalness: 1, roughness: 0.25 });
   addCutout(plasticMat, side(0, 0), 'plastic');
-  addCutout(frostMat, side(0, 0), 'frost');
+  // Clear ridges: sloped parts bend light (show as thin dark lines) and curved crests catch
+  // the light (thin bright arcs that move as the disc turns).
+  clearHubMat.onBeforeCompile = (shader) => {
+    Object.assign(shader.uniforms, side(0, 0), { uLights: { value: LIGHTS } });
+    injectDamageVertex(shader, false);
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', '#include <common>\nvarying vec3 vAxisZ;')
+      .replace('#include <project_vertex>', '#include <project_vertex>\nvAxisZ = normalize(normalMatrix * vec3(0.0, 0.0, 1.0));');
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <common>', `#include <common>${DAMAGE_FRAG_HEAD}
+varying vec3 vAxisZ;
+uniform vec4 uLights[${LIGHTS.length}];`)
+      .replace('#include <clipping_planes_fragment>', '#include <clipping_planes_fragment>' + DAMAGE_CUT)
+      .replace(
+        '#include <opaque_fragment>',
+        `{
+  vec3 N = normalize(normal);
+  vec3 V = normalize(vViewPosition);
+  vec3 P = -vViewPosition;
+  float c = abs(dot(N, vAxisZ));
+  float slope = sqrt(max(1.0 - c * c, 0.0));         // 0 on flat plastic, higher on ridge sides
+  float glint = 0.0;
+  for (int i = 0; i < ${LIGHTS.length}; i++) {
+    vec3 L = normalize((viewMatrix * vec4(uLights[i].xyz, 1.0)).xyz - P);
+    glint += pow(max(dot(N, normalize(L + V)), 0.0), 140.0) * uLights[i].w;
+  }
+  float edge = smoothstep(0.04, 0.3, slope);
+  outgoingLight = mix(outgoingLight, vec3(0.42, 0.45, 0.5), edge * 0.75); // refraction: dark ridge lines
+  outgoingLight += vec3(1.0) * glint * 2.6;                               // moving bright arcs
+  diffuseColor.a = clamp(diffuseColor.a + edge * 0.45 + glint * 0.7, 0.0, 0.95);
+}
+#include <opaque_fragment>`
+      );
+  };
+  clearHubMat.customProgramCacheKey = () => 'cd-clear-hub';
   addCutout(silverHubMat, side(0, 0), 'silver');
 
   const top = T / 2 + 0.0005;
@@ -318,30 +398,19 @@ export function createCD() {
   data.position.z = bottom;
   group.add(data);
 
-  // Clear plastic hub, stacking ring, outer rim and edges
-  const hubMeshes = [];
+  // Clear hub with ridges, outer rim and edge
+  const hub = new THREE.Mesh(hubGeometry(), clearHubMat);
+  hub.renderOrder = 2;
+  group.add(hub);
   for (const z of [top, bottom]) {
-    const hub = new THREE.Mesh(ring(HOLE, PRINT_IN, 128), plasticMat);
-    hub.position.z = z;
-    hub.renderOrder = 2;
-    hubMeshes.push(hub);
-    group.add(hub);
-
     const rim = new THREE.Mesh(ring(PRINT_OUT, R, 192), plasticMat);
     rim.position.z = z;
     rim.renderOrder = 2;
     group.add(rim);
-
-    const stack = new THREE.Mesh(ring(STACK_IN, STACK_OUT, 128), frostMat);
-    stack.position.z = z + Math.sign(z) * 0.001;
-    stack.renderOrder = 3;
-    group.add(stack);
   }
-  for (const r of [R, HOLE]) {
-    const edge = new THREE.Mesh(tube(r), plasticMat);
-    edge.renderOrder = 2;
-    group.add(edge);
-  }
+  const edge = new THREE.Mesh(tube(R), plasticMat);
+  edge.renderOrder = 2;
+  group.add(edge);
 
   let labelTexture = null;
   let labelMatTexture = null;
@@ -422,7 +491,7 @@ export function createCD() {
       dataMat.roughness = 0.03 + (1 - design.shine) * 0.45;
       labelDiffraction.uKnockTint.value.copy(c);
       applyLabelMode(design);
-      for (const m of hubMeshes) m.material = design.hub === 'silver' ? silverHubMat : plasticMat;
+      hub.material = design.hub === 'silver' ? silverHubMat : clearHubMat;
 
       if (design.texture !== lastLabelSurface) {
         lastLabelSurface = design.texture;
@@ -455,7 +524,7 @@ export function createCD() {
     dispose() {
       group.traverse((o) => o.geometry && o.geometry.dispose());
       [labelMat, dataMat].forEach((m) => m.bumpMap && m.bumpMap.dispose());
-      [labelMat, dataMat, plasticMat, frostMat, silverHubMat, inkMat].forEach((m) => m.dispose());
+      [labelMat, dataMat, plasticMat, clearHubMat, silverHubMat, inkMat].forEach((m) => m.dispose());
       inkTexture.dispose();
       if (labelTexture) labelTexture.dispose();
       if (labelMatTexture) labelMatTexture.dispose();
