@@ -367,19 +367,11 @@ export const FRONTS = [
   imageFront({
     id: 'oatey',
     name: 'Oatey',
-    note: 'White print on a bare mirror disc',
-    file: 'oatey_cd.png',
-    mode: 'print',
-    face: { color: '#e9edf1', metal: 1, rough: 0.04, hubBand: '#9ea5ab' },
-    ink: { rough: 0.45, metal: 0 },
-  }),
-  imageFront({
-    id: 'oatey-knockout',
-    name: 'Oatey (knockout)',
-    note: 'Black lacquer face with mirror lettering',
+    note: 'Red-tinted satin metal with mirror knockout lettering',
     file: 'oatey_cd.png',
     mode: 'knockout',
-    face: { color: '#1d1f23', metal: 0.35, rough: 0.3, hubBand: '#8c949b', rim: '#b9c4c2' },
+    // Same satin metal lacquer as the Verbatim-style front, tinted red
+    face: { color: '#a8453f', metal: 0.7, rough: 0.28, hubBand: '#7e6f6f', rim: '#c4bfc0' },
   }),
 ];
 
