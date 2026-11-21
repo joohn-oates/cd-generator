@@ -49,3 +49,4 @@ code { background: var(--panel-2); padding: 1px 4px; border-radius: 4px; }
   #stage { grid-row: 1; }
   .panel { grid-row: 2; border-right: 0; padding: 16px; }
 }
+[hidden] { display: none !important; }

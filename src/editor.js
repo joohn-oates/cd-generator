@@ -6,7 +6,7 @@ const $ = (s) => document.querySelector(s);
 const stageEl = $('#stage');
 const stage = createStage(stageEl, { preserveDrawingBuffer: true });
 
-const LABEL_KEYS = ['bgStyle', 'bg1', 'bg2', 'title', 'subtitle', 'textColor'];
+const LABEL_KEYS = ['bgStyle', 'bg1', 'bg2', 'title', 'subtitle', 'textColor', 'grain'];
 
 let design = { ...DEFAULTS };
 try {

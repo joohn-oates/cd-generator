@@ -1,8 +1,42 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/OrbitControls.js';
-import { RoomEnvironment } from 'three/addons/RoomEnvironment.js';
 import { createCD } from './cd.js';
 import { drawLabel } from './label.js';
+
+// A bright white room with a few soft light panels, like a desk by a window.
+// The shiny side reflects this, so it reads as pale silver instead of dark chrome.
+function studioEnvironment() {
+  const env = new THREE.Scene();
+  const c = document.createElement('canvas');
+  c.width = 4;
+  c.height = 256;
+  const ctx = c.getContext('2d');
+  const g = ctx.createLinearGradient(0, 0, 0, 256);
+  g.addColorStop(0, '#ffffff');
+  g.addColorStop(0.45, '#eef2f6');
+  g.addColorStop(0.6, '#c9d0d8');
+  g.addColorStop(1, '#9aa3ad');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, 4, 256);
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  env.add(new THREE.Mesh(new THREE.SphereGeometry(10, 32, 16), new THREE.MeshBasicMaterial({ map: tex, side: THREE.BackSide })));
+
+  const panel = (w, h, pos, intensity, tint = 0xffffff) => {
+    const m = new THREE.Mesh(
+      new THREE.PlaneGeometry(w, h),
+      new THREE.MeshBasicMaterial({ color: new THREE.Color(tint).multiplyScalar(intensity), side: THREE.DoubleSide })
+    );
+    m.position.copy(pos);
+    m.lookAt(0, 0, 0);
+    env.add(m);
+  };
+  panel(6, 3, new THREE.Vector3(-4, 5, 4), 4);
+  panel(3, 5, new THREE.Vector3(6, 1, 3), 3, 0xf2f6ff);
+  panel(8, 2, new THREE.Vector3(0, 6, -4), 2.5);
+  panel(4, 4, new THREE.Vector3(-5, -1, -5), 1.5, 0xfff6ea);
+  return env;
+}
 
 // Creates the 3D scene inside `container` (fills it, transparent background).
 export function createStage(container, { preserveDrawingBuffer = false } = {}) {
@@ -19,7 +53,7 @@ export function createStage(container, { preserveDrawingBuffer = false } = {}) {
 
   const scene = new THREE.Scene();
   const pmrem = new THREE.PMREMGenerator(renderer);
-  scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.03).texture;
+  scene.environment = pmrem.fromScene(studioEnvironment(), 0.02).texture;
 
   const key = new THREE.DirectionalLight(0xffffff, 1.6);
   key.position.set(2, 3, 4);
@@ -102,7 +136,7 @@ export function createStage(container, { preserveDrawingBuffer = false } = {}) {
       if (labelChanged) {
         const v = ++labelVersion;
         const canvas = await drawLabel(next);
-        if (v === labelVersion) cd.setLabel(canvas, renderer.capabilities.getMaxAnisotropy());
+        if (v === labelVersion) cd.setLabel(canvas, next, renderer.capabilities.getMaxAnisotropy());
       }
     },
 

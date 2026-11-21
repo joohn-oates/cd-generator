@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { applyGrain, labelSurfaceMap, dataSurfaceMap } from './textures.js';
 
 // Real CD proportions (120 mm disc), scaled so the radius is 1.
 const R = 1;
@@ -26,64 +27,120 @@ function tube(radius) {
   return g;
 }
 
-// Shiny side: silver with rainbow diffraction bands and fine grooves, like light hitting a real CD.
-function drawDataSide(strength, size = 1024) {
-  const canvas = document.createElement('canvas');
-  canvas.width = canvas.height = size;
-  const ctx = canvas.getContext('2d');
-  const c = size / 2;
+// ---------------------------------------------------------------------------
+// Diffraction: a CD's data side is a grating of circular grooves ~1.6 µm apart.
+// Light from each source splits into a spectrum along the radius wherever the
+// grooves line up with the light and the viewer, giving the moving rainbow streaks.
+// ---------------------------------------------------------------------------
 
-  ctx.fillStyle = '#d9dde2';
-  ctx.fillRect(0, 0, size, size);
+// Virtual "room lights" (world space, xyz + brightness). Each one makes its own streak.
+const LIGHTS = [
+  new THREE.Vector4(-2.6, 1.8, 2.4, 1.0),
+  new THREE.Vector4(2.8, 0.6, 2.2, 0.9),
+  new THREE.Vector4(0.8, -2.8, 2.0, 0.7),
+  new THREE.Vector4(1.6, 2.9, 3.0, 0.6),
+  new THREE.Vector4(-1.8, -1.6, 3.4, 0.5),
+];
 
-  if (strength > 0 && ctx.createConicGradient) {
-    // Two opposite rainbow bands, the classic CD look.
-    const g = ctx.createConicGradient(-Math.PI / 3, c, c);
-    const silver = 'rgba(217,221,226,0)';
-    const band = (from, to) => {
-      g.addColorStop(from, silver);
-      const hues = [280, 220, 180, 120, 60, 30, 0, 320];
-      hues.forEach((h, i) => {
-        const t = from + ((to - from) * (i + 1)) / (hues.length + 1);
-        g.addColorStop(t, `hsla(${h}, 90%, 62%, ${strength})`);
-      });
-      g.addColorStop(to, silver);
-    };
-    band(0.0, 0.22);
-    band(0.5, 0.72);
-    g.addColorStop(1, silver);
-    ctx.fillStyle = g;
-    ctx.fillRect(0, 0, size, size);
+function addDiffraction(material, uniforms) {
+  material.onBeforeCompile = (shader) => {
+    Object.assign(shader.uniforms, uniforms);
+
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', '#include <common>\nvarying vec3 vRadialView;')
+      .replace(
+        '#include <project_vertex>',
+        '#include <project_vertex>\nvRadialView = (modelViewMatrix * vec4(position.xy, 0.0, 0.0)).xyz;'
+      );
+
+    shader.fragmentShader = shader.fragmentShader
+      .replace(
+        '#include <common>',
+        `#include <common>
+varying vec3 vRadialView;
+uniform vec4 uLights[${LIGHTS.length}];
+uniform float uRainbow;
+uniform float uGroove;     // groove spacing in nm
+uniform float uStreak;     // streak width
+
+// Wavelength (nm) -> RGB, violet to red, fading out at the ends of the visible range.
+vec3 spectrum(float lam) {
+  float x = (lam - 380.0) / 370.0;
+  x = clamp(x, 0.0, 1.0);
+  float h = 0.8 * (1.0 - x);
+  vec3 c = clamp(abs(mod(h * 6.0 + vec3(0.0, 4.0, 2.0), 6.0) - 3.0) - 1.0, 0.0, 1.0);
+  return pow(c, vec3(1.3));   // purer, more saturated bands
+}`
+      )
+      .replace(
+        '#include <opaque_fragment>',
+        `{
+  vec3 N = normal;
+  vec3 P = -vViewPosition;
+  vec3 V = normalize(vViewPosition);
+  vec3 Tr = vRadialView - N * dot(vRadialView, N);
+  float rl = length(Tr);
+  if (rl > 1e-5 && uRainbow > 0.0) {
+    Tr /= rl;
+    vec3 Bt = normalize(cross(N, Tr));      // along the grooves
+    vec3 rainbow = vec3(0.0);
+    float mask = 0.0;
+    for (int i = 0; i < ${LIGHTS.length}; i++) {
+      vec3 Lp = (viewMatrix * vec4(uLights[i].xyz, 1.0)).xyz;
+      vec3 L = normalize(Lp - P);
+      if (dot(L, N) <= 0.0) continue;
+      vec3 H = L + V;
+      // Streak where the grooves line up with light + viewer (wedge shaped, like the real thing)
+      float along = dot(Bt, H) / max(abs(dot(Tr, H)), 0.15);
+      float streak = exp(-along * along / (uStreak * uStreak));
+      float haze = exp(-along * along / (9.0 * uStreak * uStreak)) * 0.25;
+      // Colour runs through the spectrum along the streak (diffraction order shifts with angle)
+      float u = abs(dot(Tr, H));
+      float lam = uGroove * u;
+      float order = lam > 760.0 ? 2.0 : 1.0;
+      vec3 c = spectrum(mod(lam / order, 380.0) + 380.0);
+      float w = (streak + haze) * uLights[i].w * smoothstep(0.04, 0.2, u);
+      rainbow += c * w;
+      mask += w;
+    }
+    vec3 tint = rainbow / max(mask, 1e-4);
+    float k = clamp(mask, 0.0, 1.0) * uRainbow;
+    // Replace silver with saturated colour inside the streak, brighten slightly at its core
+    outgoingLight = mix(outgoingLight, tint * (0.75 + 0.6 * k), k * 0.9);
   }
-
-  // Fine concentric grooves
-  ctx.lineWidth = 1;
-  for (let r = size * 0.18; r < c; r += 3) {
-    ctx.strokeStyle = `rgba(255,255,255,${0.05 + Math.random() * 0.08})`;
-    ctx.beginPath();
-    ctx.arc(c, c, r, 0, Math.PI * 2);
-    ctx.stroke();
-  }
-  const tex = new THREE.CanvasTexture(canvas);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  return tex;
+}
+#include <opaque_fragment>`
+      );
+  };
+  material.customProgramCacheKey = () => 'cd-diffraction';
 }
 
 export function createCD() {
   const group = new THREE.Group();
 
   // toneMapped: false keeps label colours true to what you pick in the editor.
-  const labelMat = new THREE.MeshPhysicalMaterial({ roughness: 0.4, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.08, toneMapped: false, envMapIntensity: 0.75 });
+  const labelMat = new THREE.MeshPhysicalMaterial({
+    roughness: 0.4, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.08,
+    toneMapped: false, envMapIntensity: 0.5,
+  });
 
+  const diffraction = {
+    uLights: { value: LIGHTS },
+    uRainbow: { value: 1 },
+    uGroove: { value: 1600 },
+    uStreak: { value: 0.085 },
+  };
   const dataMat = new THREE.MeshPhysicalMaterial({
-    color: 0xffffff,
-    metalness: 0.85,
-    roughness: 0.15,
-    iridescence: 1,
-    iridescenceIOR: 1.6,
-    iridescenceThicknessRange: [300, 700],
+    color: 0xedf2f7,
+    metalness: 1,
+    roughness: 0.1,
+    envMapIntensity: 1,
+    iridescence: 0.25,
+    iridescenceIOR: 1.5,
+    iridescenceThicknessRange: [300, 600],
     side: THREE.DoubleSide,
   });
+  addDiffraction(dataMat, diffraction);
 
   const plasticMat = new THREE.MeshPhysicalMaterial({
     color: 0xe8eef2,
@@ -104,6 +161,9 @@ export function createCD() {
     depthWrite: false,
     side: THREE.DoubleSide,
   });
+
+  // Used when the centre hub is set to "Silver"
+  const silverHubMat = new THREE.MeshPhysicalMaterial({ color: 0xcfd4d8, metalness: 1, roughness: 0.25 });
 
   const top = T / 2 + 0.0005;
   const bottom = -T / 2 - 0.0005;
@@ -144,45 +204,59 @@ export function createCD() {
     group.add(edge);
   }
 
-  // Used when the centre hub is set to "Silver"
-  const silverHubMat = new THREE.MeshPhysicalMaterial({ color: 0xcfd4d8, metalness: 1, roughness: 0.25 });
+  let labelTexture = null;
+  let lastLabelSurface = null;
+  let lastDataSurface = null;
 
-  let currentTexture = null;
-  let dataRainbow = null;
+  function swap(mat, key, tex) {
+    if (mat[key]) mat[key].dispose();
+    mat[key] = tex;
+    mat.needsUpdate = true;
+  }
 
   return {
     object: group,
 
-    setLabel(canvas, maxAnisotropy = 8) {
+    // `canvas` is the drawn label; grain is added here so design files stay grain-free.
+    setLabel(canvas, design, maxAnisotropy = 8) {
+      applyGrain(canvas, design.grain);
       const tex = new THREE.CanvasTexture(canvas);
       tex.colorSpace = THREE.SRGBColorSpace;
       tex.anisotropy = maxAnisotropy;
       labelMat.map = tex;
       labelMat.needsUpdate = true;
-      if (currentTexture) currentTexture.dispose();
-      currentTexture = tex;
+      if (labelTexture) labelTexture.dispose();
+      labelTexture = tex;
     },
 
     setStyle(design) {
-      dataMat.color.set(design.tint);
-      dataMat.iridescence = design.rainbow * 0.6;
-      if (dataRainbow !== design.rainbow) {
-        dataRainbow = design.rainbow;
-        if (dataMat.map) dataMat.map.dispose();
-        dataMat.map = drawDataSide(design.rainbow);
-        dataMat.needsUpdate = true;
-      }
-      dataMat.roughness = 0.02 + (1 - design.shine) * 0.5;
+      dataMat.color.set(0xedf2f7).multiply(new THREE.Color(design.tint));
+      diffraction.uRainbow.value = design.rainbow;
+      dataMat.iridescence = design.rainbow * 0.12;
+      dataMat.roughness = 0.03 + (1 - design.shine) * 0.45;
       labelMat.roughness = design.finish === 'matte' ? 0.85 : 0.35;
       labelMat.clearcoat = design.finish === 'matte' ? 0 : 1;
       for (const m of hubMeshes) m.material = design.hub === 'silver' ? silverHubMat : plasticMat;
+
+      const labelKey = `${design.texture}|${design.wear}`;
+      if (labelKey !== lastLabelSurface) {
+        lastLabelSurface = labelKey;
+        const on = design.texture > 0 || design.wear > 0;
+        swap(labelMat, 'bumpMap', on ? labelSurfaceMap(design.texture, design.wear) : null);
+        labelMat.bumpScale = 0.35;
+      }
+      if (design.wear !== lastDataSurface) {
+        lastDataSurface = design.wear;
+        swap(dataMat, 'bumpMap', dataSurfaceMap(design.wear));
+        dataMat.bumpScale = 0.12;
+      }
     },
 
     dispose() {
       group.traverse((o) => o.geometry && o.geometry.dispose());
+      [labelMat, dataMat].forEach((m) => m.bumpMap && m.bumpMap.dispose());
       [labelMat, dataMat, plasticMat, frostMat, silverHubMat].forEach((m) => m.dispose());
-      if (currentTexture) currentTexture.dispose();
-      if (dataMat.map) dataMat.map.dispose();
+      if (labelTexture) labelTexture.dispose();
     },
   };
 }

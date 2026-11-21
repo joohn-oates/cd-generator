@@ -11,12 +11,15 @@ export const DEFAULTS = {
   subtitle: 'Artist Name',
   textColor: '#ffffff',
   finish: 'gloss',          // 'gloss' | 'matte'
+  grain: 0.35,              // 0..1 film grain + uneven ink on the print
+  texture: 0.5,             // 0..1 raised paper/ink texture that catches light
 
   // Disc (shiny data side + plastic hub)
   tint: '#ffffff',
-  rainbow: 1,               // 0..1 iridescence strength
+  rainbow: 1,               // 0..1 strength of the moving rainbow streaks
   shine: 0.85,              // 0..1 (1 = mirror)
   hub: 'clear',             // 'clear' | 'silver'
+  wear: 0.25,               // 0..1 fine scratches on both sides
 
   // Motion
   motion: 'turntable',      // 'turntable' | 'spin' | 'float' | 'none'
