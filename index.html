@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CD Generator</title>
+  <link rel="stylesheet" href="src/editor.css">
+  <script type="importmap">
+    { "imports": { "three": "./vendor/three/three.module.min.js", "three/addons/": "./vendor/three/addons/" } }
+  </script>
+</head>
+<body>
+  <aside class="panel">
+    <header>
+      <h1>CD Generator</h1>
+      <p>Design a 3D CD, then embed it in Framer.</p>
+    </header>
+
+    <section>
+      <h2>Label</h2>
+      <label>Title <input data-key="title" type="text" maxlength="40"></label>
+      <label>Subtitle <input data-key="subtitle" type="text" maxlength="60"></label>
+      <div class="row">
+        <label>Text <input data-key="textColor" type="color"></label>
+        <label>Finish
+          <select data-key="finish"><option value="gloss">Gloss</option><option value="matte">Matte</option></select>
+        </label>
+      </div>
+      <label>Background
+        <select data-key="bgStyle">
+          <option value="solid">Solid colour</option>
+          <option value="linear">Linear gradient</option>
+          <option value="radial">Radial gradient</option>
+        </select>
+      </label>
+      <div class="row">
+        <label>Colour 1 <input data-key="bg1" type="color"></label>
+        <label class="bg2">Colour 2 <input data-key="bg2" type="color"></label>
+      </div>
+      <div class="upload">
+        <label class="button secondary">Upload artwork…
+          <input id="artwork" type="file" accept="image/*" hidden>
+        </label>
+        <button id="removeArt" class="secondary" hidden>Remove</button>
+      </div>
+      <p class="hint">Square images work best. Clear the title/subtitle if the art has its own text.</p>
+    </section>
+
+    <section>
+      <h2>Disc</h2>
+      <label>Shiny side tint <input data-key="tint" type="color"></label>
+      <label>Rainbow <input data-key="rainbow" type="range" min="0" max="1" step="0.01"></label>
+      <label>Shine <input data-key="shine" type="range" min="0" max="1" step="0.01"></label>
+      <label>Centre hub
+        <select data-key="hub"><option value="clear">Clear plastic</option><option value="silver">Silver</option></select>
+      </label>
+    </section>
+
+    <section>
+      <h2>Motion</h2>
+      <label>Style
+        <select data-key="motion">
+          <option value="turntable">Turntable (shows both sides)</option>
+          <option value="spin">Spin (like it's playing)</option>
+          <option value="float">Float</option>
+          <option value="none">Still</option>
+        </select>
+      </label>
+      <label>Speed <input data-key="speed" type="range" min="0" max="3" step="0.05"></label>
+      <label>Tilt <input data-key="tilt" type="range" min="-45" max="45" step="1"></label>
+      <label class="check"><input data-key="drag" type="checkbox"> Visitors can drag to rotate</label>
+    </section>
+
+    <section class="export">
+      <h2>Export</h2>
+      <label>Design name <input id="name" type="text" value="my-cd" maxlength="60"></label>
+      <button id="getLink">Get embed link</button>
+      <div id="output" hidden>
+        <input id="link" type="text" readonly>
+        <div class="row"><button id="copy" class="secondary">Copy link</button><a id="openLink" class="button secondary" target="_blank">Open</a></div>
+        <div id="fileSteps" hidden>
+          <p class="hint"><strong>This design has uploaded artwork</strong>, so it needs a design file:</p>
+          <ol class="hint">
+            <li><button id="downloadFile" class="linkish">Download <span id="fileName"></span></button></li>
+            <li>On GitHub, open your repo's <code>designs</code> folder → <em>Add file → Upload files</em> → drop it in → <em>Commit</em>.</li>
+            <li>Wait ~1 minute, then the link above works.</li>
+          </ol>
+        </div>
+        <p class="hint">In Framer: <em>Insert → Embed</em>, set type to <em>URL</em>, paste the link.</p>
+      </div>
+      <button id="png" class="secondary">Save PNG image</button>
+    </section>
+
+    <section>
+      <h2>Preview</h2>
+      <label>Background (preview only) <input id="previewBg" type="color" value="#f2f2f2"></label>
+    </section>
+  </aside>
+
+  <main id="stage"></main>
+
+  <script type="module" src="src/editor.js"></script>
+</body>
+</html>

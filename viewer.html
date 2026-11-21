@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CD Viewer</title>
+  <style>
+    html, body { margin: 0; height: 100%; background: transparent; overflow: hidden; }
+    #stage { position: fixed; inset: 0; }
+    #error { position: fixed; inset: 0; display: none; place-items: center; font: 14px system-ui, sans-serif; color: #888; text-align: center; padding: 16px; }
+  </style>
+  <script type="importmap">
+    { "imports": { "three": "./vendor/three/three.module.min.js", "three/addons/": "./vendor/three/addons/" } }
+  </script>
+</head>
+<body>
+  <div id="stage"></div>
+  <div id="error"></div>
+  <script type="module">
+    import { createStage } from './src/stage.js';
+    import { loadDesignFromLocation } from './src/design.js';
+
+    try {
+      const design = await loadDesignFromLocation();
+      const stage = createStage(document.getElementById('stage'));
+      await stage.setDesign(design);
+    } catch (e) {
+      const el = document.getElementById('error');
+      el.textContent = e.message;
+      el.style.display = 'grid';
+      console.error(e);
+    }
+  </script>
+</body>
+</html>
