@@ -34,32 +34,48 @@ const CSS = `
   background: rgba(225, 225, 226, 0.92); border: 0.5px solid rgba(129, 129, 129, 0.3);
   -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
   font: 600 13px "Geist", Inter, system-ui, -apple-system, "Segoe UI", sans-serif; color: #1e1e1e;
-  -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; user-select: none; }
+  -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; user-select: none;
+  --ease: cubic-bezier(0.2, 0, 0, 1); }
 .cdm[hidden] { display: none; }
 .cdm button { all: unset; box-sizing: border-box; cursor: pointer; display: inline-flex; align-items: center;
-  justify-content: center; height: 32px; padding: 4px 9px; border-radius: 28px; color: #1e1e1e; }
-.cdm button:hover { background: rgba(118, 118, 128, 0.12); }
+  justify-content: center; height: 32px; padding: 4px 9px; border-radius: 28px; color: #1e1e1e;
+  transition: background-color 0.18s var(--ease), color 0.18s var(--ease), box-shadow 0.18s var(--ease),
+    transform 0.12s var(--ease), filter 0.18s var(--ease); }
+.cdm button:hover { background-color: rgba(118, 118, 128, 0.12); }
+.cdm button:active { transform: scale(0.94); }
 .cdm button:focus-visible { outline: 2px solid #00c0e8; outline-offset: 1px; }
 .cdm .pen { width: 42px; }
-.cdm.on .pen { background: rgba(118, 118, 128, 0.12); box-shadow: inset 0 0 0 0.5px rgba(129, 129, 129, 0.3); }
+.cdm.on .pen { background-color: rgba(118, 118, 128, 0.12); box-shadow: inset 0 0 0 0.5px rgba(129, 129, 129, 0.3); }
 .cdm .tools { display: none; align-items: center; gap: 8px; }
-.cdm.on .tools { display: inline-flex; }
-.cdm .swatch { width: 24px; height: 24px; padding: 0; border-radius: 99px; }
-.cdm .swatch:hover { background: var(--c); filter: brightness(1.1); }
-.cdm .swatch[aria-pressed=true] { box-shadow: 0 0 0 2px rgba(225, 225, 226, 0.95), 0 0 0 3.5px currentColor; }
+.cdm.on .tools { display: inline-flex; animation: cdm-open 0.24s var(--ease) both; }
+@keyframes cdm-open { from { opacity: 0; transform: translateX(-8px); } to { opacity: 1; transform: none; } }
+/* Colour dots: the selected one gets a 6px white dot in the middle */
+.cdm .swatch { width: 24px; height: 24px; padding: 0; border-radius: 99px;
+  background: radial-gradient(circle, #fff 0 2.6px, transparent 3.2px) center / 0 0 no-repeat, var(--c); }
+.cdm .swatch:hover { background-color: var(--c); filter: brightness(1.12); }
+.cdm .swatch[aria-pressed=true] { background-size: 100% 100%, auto; }
+.cdm .swatch { transition: background-size 0.18s var(--ease), filter 0.18s var(--ease), transform 0.12s var(--ease); }
 .cdm .sep { width: 1px; height: 32px; background: rgba(49, 49, 49, 0.1); }
 .cdm .seg { display: inline-flex; gap: 2px; align-items: center; height: 32px; }
 .cdm .seg button { height: 25px; padding: 4px 8px; border-radius: 26px; color: #757575; }
-.cdm .seg button[aria-pressed=true] { background: #fff; color: #1e1e1e;
+.cdm .seg button:hover { color: #1e1e1e; }
+.cdm .seg button[aria-pressed=true] { background-color: #fff; color: #1e1e1e;
   box-shadow: 0 1px 1px rgba(0, 0, 0, 0.3), 0 1px 1.5px rgba(0, 0, 0, 0.15); }
 .cdm .icons { display: inline-flex; gap: 2px; }
-.cdm .done { background: rgba(118, 118, 128, 0.12); box-shadow: inset 0 0 0 0.5px rgba(129, 129, 129, 0.3); }
-.cdm .done:hover { background: rgba(118, 118, 128, 0.22); }
-.cdm .tip { position: absolute; left: calc(100% + 4px); top: 50%; transform: translateY(-50%);
+.cdm .done { background-color: rgba(118, 118, 128, 0.12); box-shadow: inset 0 0 0 0.5px rgba(129, 129, 129, 0.3); }
+.cdm .done:hover { background-color: rgba(118, 118, 128, 0.22); }
+/* Tooltips: dark pill, like the Marker Mode label in the design */
+.cdm .tip { position: absolute; top: calc(100% + 8px); left: 0; transform: translate(-50%, -4px);
   padding: 8.5px 12.5px; border-radius: 8px; background: #303030; border: 0.5px solid rgba(129, 129, 129, 0.3);
-  color: #f3f3f3; white-space: nowrap; pointer-events: none; opacity: 0; transition: opacity 0.15s ease; }
-.cdm:not(.on) .pen:hover + .tip, .cdm:not(.on) .pen:focus-visible + .tip { opacity: 1; }
-.cdm.on .tip { display: none; }
+  color: #f3f3f3; white-space: nowrap; pointer-events: none; opacity: 0;
+  transition: opacity 0.15s var(--ease), transform 0.15s var(--ease); }
+.cdm .tip.show { opacity: 1; transform: translate(-50%, 0); }
+.cdm .tip.side { top: 50%; transform: translate(-4px, -50%); }
+.cdm .tip.side.show { transform: translate(0, -50%); }
+.cdm .tip kbd { font: inherit; opacity: 0.55; margin-left: 8px; }
+@media (prefers-reduced-motion: reduce) {
+  .cdm *, .cdm .tip { transition: none !important; animation: none !important; }
+}
 `;
 
 export function createMarker({ container, canvasEl, camera, labelMesh, ink, onToggle, onChange = () => {}, snapshot, editor = false }) {
@@ -74,27 +90,78 @@ export function createMarker({ container, canvasEl, camera, labelMesh, ink, onTo
   const bar = document.createElement('div');
   bar.className = 'cdm';
   bar.innerHTML = `
-    <button class="pen" type="button" aria-pressed="false" aria-label="Marker mode: write on the CD">${ICONS.marker}</button>
-    <span class="tip" aria-hidden="true">Marker Mode</span>
+    <button class="pen" type="button" aria-pressed="false" aria-label="Marker mode: write on the CD" data-tip="Marker Mode">${ICONS.marker}</button>
     <span class="tools">
-      ${COLORS.map((c, i) => `<button class="swatch" type="button" data-color="${c.value}" aria-pressed="${i === 0}" aria-label="${c.name} marker" title="${c.name}" style="--c:${SWATCH[c.name] || c.value};background:var(--c);color:var(--c)"></button>`).join('')}
+      ${COLORS.map((c, i) => `<button class="swatch" type="button" data-color="${c.value}" aria-pressed="${i === 0}" aria-label="${c.name} marker" data-tip="${c.name} marker" style="--c:${SWATCH[c.name] || c.value}"></button>`).join('')}
       <span class="sep"></span>
       <span class="seg" role="group" aria-label="Tip size">
-        <button class="size" type="button" data-size="fine" aria-pressed="true">Fine</button>
-        <button class="size" type="button" data-size="bold" aria-pressed="false">Bold</button>
+        <button class="size" type="button" data-size="fine" aria-pressed="true" data-tip="Fine tip">Fine</button>
+        <button class="size" type="button" data-size="bold" aria-pressed="false" data-tip="Bold tip">Bold</button>
       </span>
       <span class="sep"></span>
       <span class="icons">
-        <button class="undo" type="button" aria-label="Undo" title="Undo (⌘Z / Ctrl+Z)">${ICONS.undo}</button>
-        <button class="redo" type="button" aria-label="Redo" title="Redo (⌘⇧Z / Ctrl+Y)">${ICONS.redo}</button>
-        <button class="save" type="button" aria-label="Save a picture of the CD" title="Save image">${ICONS.save}</button>
+        <button class="undo" type="button" aria-label="Undo" data-tip="Undo" data-keys="undo">${ICONS.undo}</button>
+        <button class="redo" type="button" aria-label="Redo" data-tip="Redo" data-keys="redo">${ICONS.redo}</button>
+        <button class="save" type="button" aria-label="Save a picture of the CD" data-tip="Save image">${ICONS.save}</button>
       </span>
       <span class="sep"></span>
-      <button class="clear" type="button" aria-label="Clear writing" title="Clear">${ICONS.clear}</button>
+      <button class="clear" type="button" aria-label="Clear writing" data-tip="Clear all writing">${ICONS.clear}</button>
       <span class="sep"></span>
-      <button class="done" type="button">Done</button>
+      <button class="done" type="button" data-tip="Finish writing">Done</button>
     </span>`;
   container.appendChild(bar);
+
+  // ---- Tooltips (styled, with a short delay; not on touch) ----
+  const tip = document.createElement('span');
+  tip.className = 'tip';
+  tip.setAttribute('aria-hidden', 'true');
+  bar.appendChild(tip);
+  const mac = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
+  const KEYS = { undo: mac ? '⌘Z' : 'Ctrl+Z', redo: mac ? '⇧⌘Z' : 'Ctrl+Y' };
+  let tipTimer = 0;
+  let tipFor = null;
+  function showTip(el) {
+    tipFor = el;
+    const keys = KEYS[el.dataset.keys];
+    tip.innerHTML = '';
+    tip.append(el.dataset.tip);
+    if (keys) {
+      const k = document.createElement('kbd');
+      k.textContent = keys;
+      tip.append(k);
+    }
+    // Closed toolbar: label sits beside the button (as in the design); open: below each control.
+    const side = !bar.classList.contains('on');
+    tip.classList.toggle('side', side);
+    const b = el.getBoundingClientRect();
+    const r = bar.getBoundingClientRect();
+    tip.style.left = side ? `${b.right - r.left + 8}px` : `${b.left - r.left + b.width / 2}px`;
+    tip.classList.add('show');
+  }
+  let lastHidden = 0;
+  function hideTip() {
+    clearTimeout(tipTimer);
+    if (tip.classList.contains('show')) lastHidden = performance.now();
+    tipFor = null;
+    tip.classList.remove('show');
+  }
+  bar.addEventListener('pointerover', (e) => {
+    if (e.pointerType === 'touch') return;
+    const el = e.target.closest('[data-tip]');
+    if (el === tipFor) return;
+    if (!el) return hideTip(); // over a gap or divider
+    clearTimeout(tipTimer);
+    // Instant when moving between controls shortly after a tooltip was showing
+    if (tip.classList.contains('show') || performance.now() - lastHidden < 400) showTip(el);
+    else tipTimer = setTimeout(() => showTip(el), 350);
+  });
+  bar.addEventListener('pointerleave', hideTip);
+  bar.addEventListener('pointerdown', hideTip);
+  bar.addEventListener('focusin', (e) => {
+    const el = e.target.closest('[data-tip]');
+    if (el && el.matches(':focus-visible')) showTip(el);
+  });
+  bar.addEventListener('focusout', hideTip);
 
   const ctx = ink.canvas.getContext('2d');
   const W = ink.canvas.width;

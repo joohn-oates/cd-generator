@@ -264,4 +264,25 @@ button:focus-visible, .button:focus-visible, input:focus-visible, select:focus-v
   .logo { width: min(288px, 100%); }
 }
 
+/* ---- Transitions on every interactive state ------------------------------ */
+button, .button, .swatches button, .chip,
+input[type=text], select, input[type=color], input[type=checkbox] {
+  transition: background-color 0.18s cubic-bezier(0.2, 0, 0, 1), border-color 0.18s cubic-bezier(0.2, 0, 0, 1),
+    box-shadow 0.18s cubic-bezier(0.2, 0, 0, 1), color 0.18s cubic-bezier(0.2, 0, 0, 1),
+    filter 0.18s cubic-bezier(0.2, 0, 0, 1), transform 0.12s cubic-bezier(0.2, 0, 0, 1),
+    outline-color 0.18s cubic-bezier(0.2, 0, 0, 1);
+}
+button:active, .button:active { transform: scale(0.97); }
+.swatches .dot { transition: transform 0.18s cubic-bezier(0.2, 0, 0, 1); }
+.swatches button:hover .dot { transform: rotate(25deg); }
+input[type=range]::-webkit-slider-thumb { transition: transform 0.12s cubic-bezier(0.2, 0, 0, 1), box-shadow 0.18s ease; }
+input[type=range]:active::-webkit-slider-thumb { transform: scale(1.06); }
+input[type=range]::-moz-range-thumb { transition: transform 0.12s cubic-bezier(0.2, 0, 0, 1), box-shadow 0.18s ease; }
+input[type=range]:active::-moz-range-thumb { transform: scale(1.06); }
+#output:not([hidden]) { animation: fade-in 0.22s cubic-bezier(0.2, 0, 0, 1) both; }
+@keyframes fade-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition: none !important; animation: none !important; }
+}
+
 [hidden] { display: none !important; }
