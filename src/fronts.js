@@ -155,6 +155,45 @@ function painter(size, face) {
       return p.line([[-half + shift, y], [half + shift, y]], width);
     },
     // Small four-point sparkle
+    // Text slanted like an italic logo (skew < 0 leans right)
+    slanted(str, x, y, [style, px, family], align = 'left', skew = -0.22) {
+      both((c) => {
+        c.save();
+        c.translate(X(x), X(y));
+        c.transform(1, 0, skew, 1, 0, 0);
+        c.font = `${style} ${U(px)}px ${family}`;
+        c.textAlign = align;
+        c.textBaseline = 'alphabetic';
+        c.fillText(str, 0, 0);
+        c.restore();
+      });
+      return p;
+    },
+    // Text curving around the disc, letters standing outward, centred on `centre` (radians;
+    // -π/2 = top), reading clockwise.
+    arcText(str, radius, centre, [style, px, family], spacing = 0) {
+      both((c) => {
+        c.font = `${style} ${U(px)}px ${family}`;
+        c.textAlign = 'center';
+        c.textBaseline = 'alphabetic';
+        const R = U(radius);
+        const gap = U(spacing);
+        const chars = [...str];
+        const widths = chars.map((ch) => c.measureText(ch).width);
+        const total = widths.reduce((a, w) => a + w + gap, -gap);
+        let along = 0;
+        chars.forEach((ch, i) => {
+          const a = centre - total / (2 * R) + (along + widths[i] / 2) / R;
+          c.save();
+          c.translate(S + Math.cos(a) * R, S + Math.sin(a) * R);
+          c.rotate(a + Math.PI / 2);
+          c.fillText(ch, 0, 0);
+          c.restore();
+          along += widths[i] + gap;
+        });
+      });
+      return p;
+    },
     sparkle(x, y, r) {
       both((c) => {
         c.beginPath();
@@ -361,6 +400,62 @@ export const FRONTS = [
       p.ink('#2a2420').text('MB', 0.79, 0.12, ['700', 0.075, SERIF], 'center');
       p.ink('#3a3836').text('SUPREMAS', 0.75, -0.13, ['700', 0.034, SANS], 'center', 0.004);
       for (let i = 0; i < 3; i++) p.ink('#3a3836').line([[0.6, -0.1 + i * 0.022], [0.9, -0.1 + i * 0.022]], 0.006);
+      return p.done();
+    },
+  },
+  {
+    id: 'memorex',
+    name: 'Memorex',
+    note: 'Champagne gold with a grid of holographic squares',
+    draw(size) {
+      const p = base(size, { color: '#ecdc9c', metal: 0.58, rough: 0.26, hubBand: '#f1e8c4', rim: '#cfd6cf' });
+      // Grid of small squares: mostly holographic knockouts, some printed in muted colours
+      const inks = ['#c79aa3', '#93b894', '#8fa6c8', '#a7a39a', '#c4ad72'];
+      const hash = (i, j) => {
+        let h = (i * 374761393 + j * 668265263) ^ 0x5bd1e995;
+        h = Math.imul(h ^ (h >>> 13), 1274126177);
+        return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+      };
+      const step = 0.088;
+      const sq = 0.024;
+      const keepOut = (x, y) => {
+        const r = Math.hypot(x, y);
+        if (r < 0.44 || r > 0.9) return true;
+        if (x < -0.4 && y > -0.1 && y < 0.08) return true; // wordmark
+        if (x > 0.44 && y > -0.08 && y < 0.1) return true; // CD-R
+        if (y < -0.62 && r > 0.72) return true; // edge text
+        return false;
+      };
+      for (let i = -11; i <= 11; i++) {
+        for (let j = -11; j <= 11; j++) {
+          const x = i * step;
+          const y = j * step;
+          if (keepOut(x, y)) continue;
+          const h = hash(i + 50, j + 50);
+          if (h < 0.08) continue; // a few gaps, like the real print
+          if (h < 0.72) p.mirror('#eef1f2');
+          else p.ink(inks[Math.floor(hash(j + 9, i + 3) * inks.length)]);
+          p.rect(x - sq / 2, y - sq / 2, sq, sq);
+        }
+      }
+      // Thin wavy lines sweeping around the top and bottom
+      for (const sign of [-1, 1]) {
+        p.ink('#7b7563').path((c, X) => {
+          for (let k = 0; k <= 80; k++) {
+            const t = k / 80;
+            const a = sign * (Math.PI / 2) + (t - 0.5) * Math.PI * 0.7;
+            const r = 0.8 + 0.035 * Math.sin(t * Math.PI * 3) - 0.04 * Math.sin(t * Math.PI);
+            const px = X(Math.cos(a) * r);
+            const py = X(Math.sin(a) * r);
+            k ? c.lineTo(px, py) : c.moveTo(px, py);
+          }
+        }, 0.0045);
+      }
+      p.ink('#f7f4e8').arcText('recordable ■ 52X ■ 700MB ■ 80min', 0.86, -Math.PI / 2, ['400', 0.05, SANS], 0.002);
+      p.ink('#3b4140').slanted('Memorex', -0.455, 0.035, ['400', 0.092, HEAVY], 'right', -0.24);
+      p.mirror().slanted('CD', 0.49, 0.045, ['400', 0.11, HEAVY], 'left', -0.12);
+      const cdW = p.width('CD', ['400', 0.11, HEAVY]);
+      p.ink('#2e55c8').slanted('-R', 0.49 + cdW + 0.005, 0.045, ['400', 0.11, HEAVY], 'left', -0.12);
       return p.done();
     },
   },
