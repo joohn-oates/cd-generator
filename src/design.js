@@ -37,7 +37,7 @@ export const DEFAULTS = {
   speed: 1,
   tilt: 12,                 // degrees
   drag: true,
-  marker: true,             // visitors can write on the label with a marker
+  marker: false,            // visitors can write on the embed with a marker (you always can in the editor)
   ink: '',                  // writing saved into the design (see ink.js)
 };
 

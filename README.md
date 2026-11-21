@@ -35,7 +35,7 @@ Presets from **Mint** to **Trashed**, plus sliders for each kind of damage:
 
 ## Marker mode
 
-Visitors can write on the CD like a 2000s burned disc. The marker button (bottom left of the embed) pauses the disc and turns it to face you. It has black, red and blue markers, fine or bold tips, Undo and Clear. **Done** starts the disc moving again, with the writing on it. Writing is temporary: it clears on reload. Turn it off per design with the "Visitors can write on it with a marker" option.
+Write on the CD like a 2000s burned disc. In the editor, the marker button (bottom left of the preview) pauses the disc and turns it to face you. It has black, red and blue markers, fine or bold tips, Undo and Clear. **Done** starts the disc moving again, with the writing on it. Writing you do in the editor is saved into the design and shows on the embed. Visitors **can't** use the marker on embeds unless you tick "Let visitors write on the embed with a marker" for that design.
 
 ## Running locally
 
