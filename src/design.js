@@ -38,7 +38,7 @@ export const DEFAULTS = {
 
   // Motion
   motion: 'turntable',      // 'turntable' | 'spin' | 'float' | 'none'
-  speed: 1,
+  speed: 0.25,              // slow, calm turn (~30 s per rotation on Turntable)
   tilt: 12,                 // degrees
   drag: true,
   marker: false,            // visitors can write on the embed with a marker (you always can in the editor)
