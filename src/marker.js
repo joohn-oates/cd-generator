@@ -56,11 +56,15 @@ const CSS = `
 .cdm .swatch[aria-pressed=true] { background-size: 100% 100%, auto; }
 .cdm .swatch { transition: background-size 0.18s var(--ease), filter 0.18s var(--ease), transform 0.12s var(--ease); }
 .cdm .sep { width: 1px; height: 32px; background: rgba(49, 49, 49, 0.1); }
-.cdm .seg { display: inline-flex; gap: 2px; align-items: center; height: 32px; }
-.cdm .seg button { height: 25px; padding: 4px 8px; border-radius: 26px; color: #757575; }
-.cdm .seg button:hover { color: #1e1e1e; }
-.cdm .seg button[aria-pressed=true] { background-color: #fff; color: #1e1e1e;
-  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.3), 0 1px 1.5px rgba(0, 0, 0, 0.15); }
+.cdm .seg { position: relative; display: inline-flex; gap: 2px; align-items: center; height: 32px; }
+.cdm .seg button { position: relative; z-index: 1; height: 25px; padding: 4px 8px; border-radius: 26px; color: #757575; }
+.cdm .seg button:hover { background-color: transparent; color: #1e1e1e; }
+.cdm .seg button[aria-pressed=true] { color: #1e1e1e; }
+/* White pill that slides between Fine and Bold */
+.cdm .seg-thumb { position: absolute; left: 0; top: 3.5px; height: 25px; width: 0; border-radius: 26px; background: #fff;
+  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.3), 0 1px 1.5px rgba(0, 0, 0, 0.15);
+  transition: transform 0.28s var(--ease), width 0.28s var(--ease); }
+.cdm .seg.instant .seg-thumb { transition: none; }
 .cdm .icons { display: inline-flex; gap: 2px; }
 .cdm .done { background-color: rgba(118, 118, 128, 0.12); box-shadow: inset 0 0 0 0.5px rgba(129, 129, 129, 0.3); }
 .cdm .done:hover { background-color: rgba(118, 118, 128, 0.22); }
@@ -95,6 +99,7 @@ export function createMarker({ container, canvasEl, camera, labelMesh, ink, onTo
       ${COLORS.map((c, i) => `<button class="swatch" type="button" data-color="${c.value}" aria-pressed="${i === 0}" aria-label="${c.name} marker" data-tip="${c.name} marker" style="--c:${SWATCH[c.name] || c.value}"></button>`).join('')}
       <span class="sep"></span>
       <span class="seg" role="group" aria-label="Tip size">
+        <span class="seg-thumb" aria-hidden="true"></span>
         <button class="size" type="button" data-size="fine" aria-pressed="true" data-tip="Fine tip">Fine</button>
         <button class="size" type="button" data-size="bold" aria-pressed="false" data-tip="Bold tip">Bold</button>
       </span>
@@ -135,7 +140,14 @@ export function createMarker({ container, canvasEl, camera, labelMesh, ink, onTo
     tip.classList.toggle('side', side);
     const b = el.getBoundingClientRect();
     const r = bar.getBoundingClientRect();
-    tip.style.left = side ? `${b.right - r.left + 8}px` : `${b.left - r.left + b.width / 2}px`;
+    if (side) tip.style.left = `${b.right - r.left + 8}px`;
+    else {
+      // Centred under the control, but never past the toolbar's left edge or the container's right edge
+      const half = tip.offsetWidth / 2;
+      const maxRight = container.getBoundingClientRect().right - r.left - 8;
+      const centre = b.left - r.left + b.width / 2;
+      tip.style.left = `${Math.max(half, Math.min(centre, maxRight - half))}px`;
+    }
     tip.classList.add('show');
   }
   let lastHidden = 0;
@@ -250,6 +262,7 @@ export function createMarker({ container, canvasEl, camera, labelMesh, ink, onTo
     if (writing === on) return;
     writing = on;
     bar.classList.toggle('on', on);
+    if (on) placeSegThumb(false);
     pen.setAttribute('aria-pressed', String(on));
     canvasEl.style.cursor = on ? 'crosshair' : '';
     canvasEl.style.touchAction = on ? 'none' : 'pan-y';
@@ -264,12 +277,24 @@ export function createMarker({ container, canvasEl, camera, labelMesh, ink, onTo
       bar.querySelectorAll('.swatch').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
     });
   }
+  const seg = bar.querySelector('.seg');
+  const segThumb = bar.querySelector('.seg-thumb');
+  function placeSegThumb(animate = true) {
+    const sel = seg.querySelector('.size[aria-pressed=true]');
+    if (!sel || !sel.offsetWidth) return; // toolbar closed
+    seg.classList.toggle('instant', !animate);
+    segThumb.style.width = `${sel.offsetWidth}px`;
+    segThumb.style.transform = `translateX(${sel.offsetLeft}px)`;
+    if (!animate) requestAnimationFrame(() => seg.classList.remove('instant'));
+  }
   for (const b of bar.querySelectorAll('.size')) {
     b.addEventListener('click', () => {
       size = b.dataset.size;
       bar.querySelectorAll('.size').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+      placeSegThumb(true);
     });
   }
+  if (document.fonts) document.fonts.ready.then(() => placeSegThumb(false));
   const undone = []; // strokes taken back by undo, for redo
   function undo() {
     if (!strokes.length) return;
