@@ -83,7 +83,7 @@ for (const f of [...FRONTS, { id: 'custom', name: 'Custom print' }]) {
   b.type = 'button';
   b.dataset.front = f.id;
   b.setAttribute('role', 'radio');
-  b.innerHTML = `<span class="dot" style="${f.id === 'custom' ? CUSTOM_DOT : ''}"></span><span class="txt">${f.name}</span>`;
+  b.innerHTML = `<span class="dot${f.id === 'custom' ? ' plain' : ''}" style="${f.id === 'custom' ? CUSTOM_DOT : ''}"></span><span class="txt">${f.name}</span>`;
   b.addEventListener('click', () => {
     design.front = f.id;
     syncControls();
@@ -133,7 +133,7 @@ for (const t of DISC_TYPES) {
   const dot = t.color
     ? `background: radial-gradient(circle at 35% 30%, #fff 0 8%, transparent 40%), ${t.color}`
     : 'background: conic-gradient(#f66, #fd6, #6f9, #6cf, #a7f, #f66)';
-  b.innerHTML = `<span class="dot" style="${dot}"></span><span class="txt">${t.name}<small>${t.layer}</small></span>`;
+  b.innerHTML = `<span class="dot${t.color ? '' : ' plain'}" style="${dot}"></span><span class="txt">${t.name}<small>${t.layer}</small></span>`;
   b.addEventListener('click', () => {
     design.discType = t.id;
     syncControls();

@@ -2,3 +2,4 @@ Fonts from Fontsource (https://fontsource.org), licensed under the SIL Open Font
 - Archivo Black
 - Inter
 - Playfair Display
+- Geist and Geist Mono (Vercel)

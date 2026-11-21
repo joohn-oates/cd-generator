@@ -1,23 +1,25 @@
 /* CD Generator editor — styled from the Figma design (CD-Generator, frame 1:31). */
 
+@font-face { font-family: Geist; src: url(../fonts/geist-sans-latin-400-normal.woff2) format("woff2"); font-weight: 400; font-display: swap; }
+@font-face { font-family: Geist; src: url(../fonts/geist-sans-latin-600-normal.woff2) format("woff2"); font-weight: 600; font-display: swap; }
+@font-face { font-family: "Geist Mono"; src: url(../fonts/geist-mono-latin-600-normal.woff2) format("woff2"); font-weight: 600; font-display: swap; }
+
 :root {
   /* Figma variables */
-  --text: #1e1e1e;               /* sds-color-text-default-default */
-  --text-2: #757575;             /* sds-color-text-default-secondary */
-  --accent: #00c0e8;             /* Accents/Cyan */
-  --white: #ffffff;              /* Backgrounds/Primary */
+  --text: #f3f3f3;                    /* sds-color-text-neutral-on-neutral */
+  --text-2: rgba(243, 243, 243, 0.6); /* helper text */
+  --text-dark: #1e1e1e;               /* text on cyan */
+  --accent: #00c0e8;                  /* Accents/Cyan */
   --fill: rgba(118, 118, 128, 0.12);  /* Fills/Tertiary */
   --fill-strong: rgba(120, 120, 120, 0.2); /* Fills/Primary */
   --stroke: rgba(129, 129, 129, 0.3);
-  --border: #d9d9d9;             /* sds-color-border-default-default */
-  --page: #dfdfdf;
+  --border: #d9d9d9;                  /* sds-color-border-default-default */
+  --page: #333333;                    /* Labels/Primary (black) + 20% white */
   --radius: 8px;
   --elev-1: 0 1px 3px 1px rgba(0, 0, 0, 0.15), 0 1px 2px 0 rgba(0, 0, 0, 0.3);   /* M3 Elevation Light/1 */
   --elev-3: 0 1px 3px 0 rgba(0, 0, 0, 0.3), 0 4px 8px 3px rgba(0, 0, 0, 0.15);   /* M3 Elevation Light/3 */
-  /* National 2 is used when its web fonts are added to /fonts; Inter otherwise. */
-  --font: "National 2", Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
-  /* Fine grain over the page background */
-  --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.1' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.09 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  --font: Geist, Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "Geist Mono", ui-monospace, "SF Mono", Menlo, monospace;
 }
 
 * { box-sizing: border-box; }
@@ -25,10 +27,10 @@ html, body { margin: 0; height: 100%; }
 body {
   display: grid;
   grid-template-columns: 336px 1fr;
-  font: 500 13px/1.3 var(--font);
-  letter-spacing: -0.03em;
+  font: 400 13px/1.3 var(--font);
   color: var(--text);
-  background: var(--grain), var(--page);
+  background: var(--page);
+  color-scheme: dark;
 }
 
 /* ---- Panel ---------------------------------------------------------------- */
@@ -38,10 +40,12 @@ body {
   display: flex;
   flex-direction: column;
   gap: 29px;
+  scrollbar-width: none;                 /* native scrollbar hidden… */
 }
-.panel { scrollbar-width: none; }              /* native scrollbar hidden… */
 .panel::-webkit-scrollbar { display: none; }
 .panel header { display: flex; }
+.logo { display: block; width: 288px; height: auto; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
 /* …replaced by a slim overlay scrollbar that takes no space (see editor.js) */
 .scroll-thumb {
@@ -49,7 +53,7 @@ body {
   z-index: 10;
   width: 4px;
   border-radius: 4px;
-  background: rgba(30, 30, 30, 0.38);
+  background: rgba(243, 243, 243, 0.4);
   opacity: 0;
   transition: opacity 0.35s ease, width 0.15s ease;
   cursor: default;
@@ -58,19 +62,23 @@ body {
 .panel:hover ~ .scroll-thumb { opacity: 0.55; }
 .scroll-thumb.on, .scroll-thumb:hover, .scroll-thumb.drag { opacity: 1; transition: opacity 0.1s ease, width 0.15s ease; }
 .scroll-thumb:hover, .scroll-thumb.drag { width: 6px; }
-.logo { display: block; width: 181px; height: auto; }
-.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
 section { display: flex; flex-direction: column; gap: 12px; }
-h2 { margin: 0; font-size: 12px; font-weight: 700; letter-spacing: -0.03em; color: var(--text); }
-
-label { display: flex; flex-direction: column; gap: 8px; font-weight: 500; color: var(--text); }
-label.check { flex-direction: row; align-items: center; gap: 8px; }
+/* Headings and field labels: Geist Mono SemiBold 13 */
+h2, label, .field-label {
+  margin: 0;
+  font: 600 13px var(--mono);
+  letter-spacing: -0.03em;
+  color: var(--text);
+}
+label { display: flex; flex-direction: column; gap: 8px; }
+label.check { flex-direction: row; align-items: center; gap: 8px; font: 600 13px var(--font); letter-spacing: 0; }
 .row { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
 .row.inline { grid-template-columns: 1fr auto; align-items: center; }
-.hint { margin: 0; color: var(--text-2); font-size: 12px; font-weight: 400; line-height: 1.4; }
+.hint { margin: 0; color: var(--text-2); font: 400 12px/1.45 var(--font); }
+.hint strong { color: var(--text); font-weight: 600; }
 ol.hint { padding-left: 18px; display: grid; gap: 4px; }
-code { background: var(--fill); padding: 1px 4px; border-radius: 4px; }
+code { background: var(--fill-strong); padding: 1px 4px; border-radius: 4px; font-family: var(--mono); }
 
 /* ---- Inputs -------------------------------------------------------------- */
 input[type=text], select {
@@ -82,18 +90,18 @@ input[type=text], select {
   background: var(--fill);
   color: var(--text);
   font: 400 13px var(--font);
-  letter-spacing: -0.03em;
   outline: none;
 }
-input[type=text]::placeholder { color: var(--text-2); }
-input[type=text]:focus, select:focus { background: var(--white); }
+input[type=text]::placeholder { color: rgba(243, 243, 243, 0.45); }
+input[type=text]:focus, select:focus { background: var(--fill-strong); }
 select {
   appearance: none;
   padding-right: 28px;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23757575' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23f3f3f3' stroke-opacity='.7' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 10px center;
 }
+select option { background: #2a2a2a; color: var(--text); }
 
 input[type=color] {
   width: 100%;
@@ -139,7 +147,7 @@ input[type=range]::-webkit-slider-thumb {
   height: 22px;
   margin-top: -6.5px;
   border-radius: 200px;
-  background: var(--white);
+  background: #fff;
   border: 0;
   box-shadow: var(--elev-3);
 }
@@ -147,12 +155,12 @@ input[type=range]::-moz-range-thumb {
   width: 32px;
   height: 22px;
   border-radius: 200px;
-  background: var(--white);
+  background: #fff;
   border: 0;
   box-shadow: var(--elev-3);
 }
 input[type=range]:focus-visible { outline: none; }
-input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: var(--elev-3), 0 0 0 3px rgba(0, 192, 232, 0.4); }
+input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: var(--elev-3), 0 0 0 3px rgba(0, 192, 232, 0.5); }
 
 /* ---- Buttons ------------------------------------------------------------- */
 button, .button {
@@ -165,28 +173,25 @@ button, .button {
   border-radius: var(--radius);
   border: 0;
   background: var(--accent);
-  color: var(--text);
-  font: 700 13px var(--font);
-  letter-spacing: -0.03em;
+  color: var(--text-dark);
+  font: 600 13px var(--font);
   text-decoration: none;
   cursor: pointer;
 }
-button:hover, .button:hover { filter: brightness(1.05); }
+button:hover, .button:hover { filter: brightness(1.08); }
 button.secondary, .button.secondary {
   background: var(--fill);
   border: 0.5px solid var(--stroke);
   color: var(--text);
-  font-weight: 500;
 }
-button.secondary:hover, .button.secondary:hover { background: var(--white); filter: none; }
-button.linkish { min-height: 0; padding: 0; background: none; color: var(--text); text-decoration: underline; font-weight: 700; }
+button.secondary:hover, .button.secondary:hover { background: var(--fill-strong); filter: none; }
+button.linkish { min-height: 0; padding: 0; background: none; color: var(--accent); text-decoration: underline; }
 button:focus-visible, .button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .upload { display: flex; gap: 6px; }
 
 /* ---- Tiles (fronts, disc types) ------------------------------------------ */
 .field { display: flex; flex-direction: column; gap: 8px; }
-.field-label { color: var(--text); }
-.field-label small { color: var(--text-2); font-weight: 400; }
+.field-label small { color: var(--text-2); font: 400 11px var(--font); letter-spacing: 0; }
 .swatches { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
 .swatches button {
   justify-content: flex-start;
@@ -197,18 +202,26 @@ button:focus-visible, .button:focus-visible, input:focus-visible, select:focus-v
   background: var(--fill);
   border: 0.5px solid var(--stroke);
   color: var(--text);
-  font-weight: 500;
   overflow: hidden;
 }
-.swatches button:hover { background: var(--white); filter: none; }
+.swatches button:hover { background: var(--fill-strong); filter: none; }
 .swatches button[aria-checked=true] {
-  background: var(--white);
+  background: var(--fill-strong);
   border-color: transparent;
   box-shadow: inset 0 0 0 2px var(--accent);
 }
-.swatches .dot { flex: none; width: 24px; height: 24px; border-radius: 99px; box-shadow: inset 0 0 0 0.5px rgba(0, 0, 0, 0.12); }
-.swatches .txt { display: flex; flex-direction: column; line-height: normal; min-width: 0; white-space: nowrap; }
-.swatches small { color: var(--text-2); font-size: 10px; letter-spacing: -0.03em; }
+/* Disc icons: masked with a centre hole, like a little CD */
+.swatches .dot {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 99px;
+  -webkit-mask: url(../assets/cd-mask.svg) center / 24px 24px no-repeat;
+  mask: url(../assets/cd-mask.svg) center / 24px 24px no-repeat;
+}
+.swatches .dot.plain { -webkit-mask: none; mask: none; }
+.swatches .txt { display: flex; flex-direction: column; line-height: normal; min-width: 0; white-space: nowrap; font-weight: 600; }
+.swatches small { color: var(--text-2); font: 400 11px var(--font); }
 
 /* Condition presets */
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -218,10 +231,9 @@ button:focus-visible, .button:focus-visible, input:focus-visible, select:focus-v
   background: var(--fill);
   border: 0.5px solid var(--stroke);
   color: var(--text);
-  font-weight: 500;
 }
-.chip:hover { background: var(--white); filter: none; }
-.chip[aria-checked=true] { background: var(--white); border-color: transparent; box-shadow: inset 0 0 0 2px var(--accent); }
+.chip:hover { background: var(--fill-strong); filter: none; }
+.chip[aria-checked=true] { background: var(--fill-strong); border-color: transparent; box-shadow: inset 0 0 0 2px var(--accent); }
 
 #output { display: flex; flex-direction: column; gap: 8px; }
 
@@ -243,6 +255,7 @@ button:focus-visible, .button:focus-visible, input:focus-visible, select:focus-v
   body { grid-template-columns: 1fr; grid-template-rows: 55vh auto; }
   #stage { grid-row: 1; margin: 8px 8px 0; }
   .panel { grid-row: 2; padding: 16px; }
+  .logo { width: min(288px, 100%); }
 }
 
 [hidden] { display: none !important; }
