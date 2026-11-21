@@ -375,7 +375,14 @@ export const FRONTS = [
   }),
 ];
 
+// Retired front ids that should keep working in existing links.
+const ALIASES = { 'oatey-knockout': 'oatey' };
+export function resolveFrontId(id) {
+  return ALIASES[id] || id;
+}
+
 export function frontById(id) {
+  id = resolveFrontId(id);
   return FRONTS.find((f) => f.id === id) || null;
 }
 

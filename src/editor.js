@@ -3,7 +3,7 @@ import { DEFAULTS, encodeDesign, loadDesignFromLocation, slugify } from './desig
 import { drawLabel, imageHasAlpha, loadImage } from './label.js';
 import { drawTemplate } from './template.js';
 import { DISC_TYPES, discType } from './discTypes.js';
-import { FRONTS, frontById, drawFront } from './fronts.js';
+import { FRONTS, frontById, drawFront, resolveFrontId } from './fronts.js';
 
 const $ = (s) => document.querySelector(s);
 const stageEl = $('#stage');
@@ -22,6 +22,7 @@ try {
   }
   delete design.labelRendered;
   if (design.name) $('#name').value = design.name;
+  design.front = resolveFrontId(design.front);
 } catch (e) {
   console.warn(e);
 }
