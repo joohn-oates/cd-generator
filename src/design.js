@@ -15,6 +15,7 @@ export const DEFAULTS = {
   subtitle: 'Artist Name',
   textColor: '#ffffff',
   finish: 'gloss',          // 'gloss' | 'matte'
+  knockouts: true,          // transparent parts of uploaded artwork become bare mirror
   grain: 0.35,              // 0..1 film grain + uneven ink on the print
   texture: 0.5,             // 0..1 raised paper/ink texture that catches light
 

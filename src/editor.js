@@ -1,6 +1,7 @@
 import { createStage } from './stage.js';
 import { DEFAULTS, encodeDesign, loadDesignFromLocation, slugify } from './design.js';
-import { drawLabel } from './label.js';
+import { drawLabel, imageHasAlpha, loadImage } from './label.js';
+import { drawTemplate } from './template.js';
 import { DISC_TYPES, discType } from './discTypes.js';
 import { FRONTS, frontById, drawFront } from './fronts.js';
 
@@ -8,7 +9,7 @@ const $ = (s) => document.querySelector(s);
 const stageEl = $('#stage');
 const stage = createStage(stageEl, { preserveDrawingBuffer: true });
 
-const LABEL_KEYS = ['bgStyle', 'bg1', 'bg2', 'title', 'subtitle', 'textColor', 'grain', 'front'];
+const LABEL_KEYS = ['bgStyle', 'bg1', 'bg2', 'title', 'subtitle', 'textColor', 'grain', 'front', 'knockouts', 'finish'];
 const hasCustomArt = () => design.front === 'custom' && !!design.labelImage;
 
 let design = { ...DEFAULTS };
@@ -35,6 +36,7 @@ function syncControls() {
   }
   $('.bg2').style.display = design.bgStyle === 'solid' ? 'none' : '';
   $('#removeArt').hidden = !design.labelImage;
+  updateArtInfo();
   for (const b of document.querySelectorAll('#discTypes button')) {
     b.setAttribute('aria-checked', String(b.dataset.type === design.discType));
   }
@@ -105,7 +107,24 @@ for (const el of controls) {
   });
 }
 
+// Tells you whether the uploaded artwork has transparency (and so knockouts).
+async function updateArtInfo() {
+  const el = $('#artInfo');
+  if (!design.labelImage) {
+    el.hidden = true;
+    return;
+  }
+  const alpha = imageHasAlpha(await loadImage(design.labelImage));
+  el.hidden = false;
+  el.textContent = alpha
+    ? design.knockouts
+      ? '✓ Transparency found: those areas are mirror knockouts.'
+      : 'Transparency found, but knockouts are off: the background shows through instead.'
+    : 'No transparency in this image, so it has no knockouts.';
+}
+
 // Artwork upload: crop to a square and shrink so design files stay small.
+// Images with transparency are kept as PNG (for knockouts); others become JPG.
 $('#artwork').addEventListener('change', async (e) => {
   const file = e.target.files[0];
   if (!file) return;
@@ -119,7 +138,10 @@ $('#artwork').addEventListener('change', async (e) => {
   const scale = Math.max(size / img.width, size / img.height);
   c.getContext('2d').drawImage(img, (size - img.width * scale) / 2, (size - img.height * scale) / 2, img.width * scale, img.height * scale);
   URL.revokeObjectURL(url);
-  design.labelImage = c.toDataURL('image/jpeg', 0.88);
+  const px = c.getContext('2d').getImageData(0, 0, size, size).data;
+  let keepAlpha = false;
+  for (let i = 3; i < px.length; i += 4 * 7) if (px[i] < 245) { keepAlpha = true; break; }
+  design.labelImage = keepAlpha ? c.toDataURL('image/png') : c.toDataURL('image/jpeg', 0.88);
   e.target.value = '';
   syncControls();
   update(true);
@@ -173,8 +195,10 @@ function download(href, filename) {
 $('#downloadFile').addEventListener('click', async () => {
   const name = slugify($('#name').value);
   // Bake the finished label (art + text) into one image so it looks identical everywhere.
-  const label = await drawLabel(design, 1024);
-  const file = { ...design, labelRendered: label.toDataURL('image/jpeg', 0.9) };
+  // With knockouts the transparency is kept (PNG); otherwise a smaller JPG.
+  const label = await drawLabel(design, 1024, { bake: true });
+  const image = label.knockouts ? label.color.toDataURL('image/png') : label.color.toDataURL('image/jpeg', 0.9);
+  const file = { ...design, labelRendered: image };
   delete file.labelImage;
   delete file.name;
   const blob = new Blob([JSON.stringify(file)], { type: 'application/json' });
@@ -182,6 +206,8 @@ $('#downloadFile').addEventListener('click', async () => {
   download(url, `${name}.json`);
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 });
+
+$('#template').addEventListener('click', () => download(drawTemplate().toDataURL('image/png'), 'cd-artwork-template-1024.png'));
 
 $('#png').addEventListener('click', () => download(stage.snapshot(), `${slugify($('#name').value)}.png`));
 

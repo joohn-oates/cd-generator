@@ -141,8 +141,8 @@ export function createStage(container, { preserveDrawingBuffer = false } = {}) {
           const f = await drawFront(next.front);
           if (v === labelVersion) cd.setLabel(f.color, next, aniso, f.material);
         } else {
-          const canvas = await drawLabel(next);
-          if (v === labelVersion) cd.setLabel(canvas, next, aniso);
+          const label = await drawLabel(next);
+          if (v === labelVersion) cd.setLabel(label.color, next, aniso, label.material);
         }
       }
     },
