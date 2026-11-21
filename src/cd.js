@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { applyGrain, labelSurfaceMap } from './textures.js';
 import { makeDamage } from './damage.js';
+import { drawHubText, SPAN as HUB_TEXT_SPAN } from './hubText.js';
 import { discType } from './discTypes.js';
 
 // Real CD proportions (120 mm disc), scaled so the radius is 1.
@@ -402,6 +403,33 @@ uniform vec4 uLights[${LIGHTS.length}];`)
   const hub = new THREE.Mesh(hubGeometry(), clearHubMat);
   hub.renderOrder = 2;
   group.add(hub);
+
+  // Text printed on the hub's flat band (between the small ridge and the stacking ring).
+  // Double-sided: from the back you see it reversed through the clear plastic.
+  const hubTextGeo = new THREE.RingGeometry(0.212, 0.278, 160, 1);
+  {
+    const pos = hubTextGeo.attributes.position;
+    const uv = hubTextGeo.attributes.uv;
+    for (let i = 0; i < pos.count; i++) {
+      uv.setXY(i, pos.getX(i) / (2 * HUB_TEXT_SPAN) + 0.5, pos.getY(i) / (2 * HUB_TEXT_SPAN) + 0.5);
+    }
+  }
+  const hubTextMat = new THREE.MeshStandardMaterial({
+    transparent: true,
+    roughness: 0.45,
+    toneMapped: false,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+    polygonOffset: true,
+    polygonOffsetFactor: -2,
+  });
+  addCutout(hubTextMat, side(0, 0), 'hubtext');
+  const hubText = new THREE.Mesh(hubTextGeo, hubTextMat);
+  hubText.position.z = T / 2 + 0.0003;
+  hubText.renderOrder = 3;
+  hubText.visible = false;
+  group.add(hubText);
+  let hubTextKey = null;
   for (const z of [top, bottom]) {
     const rim = new THREE.Mesh(ring(PRINT_OUT, R, 192), plasticMat);
     rim.position.z = z;
@@ -453,6 +481,24 @@ uniform vec4 uLights[${LIGHTS.length}];`)
   return {
     object: group,
     labelMesh: label,
+
+    // Hub ring text (async: waits for fonts)
+    async setHubText(design) {
+      const key = [design.hubText1, design.hubText2, design.hubTextColor].join('|');
+      if (key === hubTextKey) return;
+      hubTextKey = key;
+      const canvas = await drawHubText(design);
+      if (key !== hubTextKey) return; // a newer change arrived meanwhile
+      if (hubTextMat.map) hubTextMat.map.dispose();
+      if (canvas) {
+        const tex = new THREE.CanvasTexture(canvas);
+        tex.colorSpace = THREE.SRGBColorSpace;
+        tex.anisotropy = 8;
+        hubTextMat.map = tex;
+      } else hubTextMat.map = null;
+      hubTextMat.needsUpdate = true;
+      hubText.visible = !!canvas;
+    },
     ink: { canvas: inkCanvas, texture: inkTexture },
 
     // `canvas` is the drawn label; grain is added here so design files stay grain-free.
@@ -524,7 +570,7 @@ uniform vec4 uLights[${LIGHTS.length}];`)
     dispose() {
       group.traverse((o) => o.geometry && o.geometry.dispose());
       [labelMat, dataMat].forEach((m) => m.bumpMap && m.bumpMap.dispose());
-      [labelMat, dataMat, plasticMat, clearHubMat, silverHubMat, inkMat].forEach((m) => m.dispose());
+      [labelMat, dataMat, plasticMat, clearHubMat, silverHubMat, inkMat, hubTextMat].forEach((m) => m.dispose());
       inkTexture.dispose();
       if (labelTexture) labelTexture.dispose();
       if (labelMatTexture) labelMatTexture.dispose();

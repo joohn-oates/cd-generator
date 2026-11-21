@@ -202,6 +202,7 @@ export function createStage(container, { preserveDrawingBuffer = false, editor =
       const prev = design;
       design = next;
       cd.setStyle(next);
+      cd.setHubText(next);
       marker.setAvailable(next.marker !== false);
       if ((next.ink || '') !== lastInk) {
         lastInk = next.ink || '';

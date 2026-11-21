@@ -25,6 +25,9 @@ export const DEFAULTS = {
   rainbow: 1,               // 0..1 strength of the moving rainbow streaks
   shine: 0.85,              // 0..1 (1 = mirror)
   hub: 'clear',             // 'clear' | 'silver'
+  hubText1: '',             // text printed around the top of the hub ring
+  hubText2: '',             // around the bottom (blank = repeat the top text)
+  hubTextColor: '#ffffff',
   wear: 0.25,               // 0..1 scratches (glint as the disc moves)
   scuffs: 0.1,              // 0..1 hazy worn patches
   dust: 0.1,                // 0..1 specks and grime
